@@ -1,0 +1,154 @@
+"""kv: всё в памяти, запись в sqlite пачкой через `delay` после первого изменения."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from collections.abc import Iterator, MutableMapping
+from pathlib import Path
+from typing import Any
+
+import aiosqlite
+
+log = logging.getLogger(__name__)
+
+_SCHEMA = """
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+CREATE TABLE IF NOT EXISTS kv (
+    ns    TEXT NOT NULL,
+    key   TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (ns, key)
+) WITHOUT ROWID;
+"""
+_UPSERT = "INSERT INTO kv (ns, key, value) VALUES (?, ?, ?) ON CONFLICT (ns, key) DO UPDATE SET value = excluded.value"
+_DELETE = "DELETE FROM kv WHERE ns = ? AND key = ?"
+
+
+class KV:
+    def __init__(self, conn: aiosqlite.Connection, data: dict[str, dict[str, Any]], delay: float) -> None:
+        self._conn = conn
+        self._data = data
+        self._delay = delay
+        self._dirty: set[tuple[str, str]] = set()
+        self._spaces: dict[str, Namespace] = {}
+        self._lock = asyncio.Lock()
+        self._timer: asyncio.Task[None] | None = None
+
+    @classmethod
+    async def open(cls, path: str | Path, *, delay: float = 0.5) -> KV:
+        conn = await aiosqlite.connect(path)
+        try:
+            await conn.executescript(_SCHEMA)
+            data: dict[str, dict[str, Any]] = {}
+            async with conn.execute("SELECT ns, key, value FROM kv") as cursor:
+                async for ns, key, value in cursor:
+                    data.setdefault(ns, {})[key] = json.loads(value)
+        except BaseException:
+            await conn.close()
+            raise
+        return cls(conn, data, delay)
+
+    def ns(self, name: str) -> Namespace:
+        space = self._spaces.get(name)
+        if space is None:
+            space = self._spaces[name] = Namespace(self, name, self._data.setdefault(name, {}))
+        return space
+
+    def mark(self, ns: str, key: str) -> None:
+        self._dirty.add((ns, key))
+        if self._timer is None:
+            self._timer = asyncio.get_running_loop().create_task(self._flush_later())
+
+    async def _flush_later(self) -> None:
+        await asyncio.sleep(self._delay)
+        self._timer = None
+        try:
+            await self.flush()
+        except Exception:
+            log.exception("kv: запись не удалась, повтор при следующем изменении")
+
+    async def flush(self) -> None:
+        async with self._lock:
+            if not self._dirty:
+                return
+            batch, self._dirty = self._dirty, set()
+            upserts, deletes = [], []
+            for ns, key in batch:
+                space = self._data.get(ns, {})
+                if key not in space:
+                    deletes.append((ns, key))
+                    continue
+                try:
+                    # сериализация здесь, а не в set: правки на месте + touch тоже попадут
+                    value = json.dumps(space[key], ensure_ascii=False, separators=(",", ":"))
+                except (TypeError, ValueError):
+                    log.error("kv: %s/%s не сериализуется в json, пропущено", ns, key)
+                    continue
+                upserts.append((ns, key, value))
+            try:
+                await self._conn.executemany(_UPSERT, upserts)
+                await self._conn.executemany(_DELETE, deletes)
+                await self._conn.commit()
+            except BaseException:
+                self._dirty |= batch
+                await self._conn.rollback()
+                raise
+
+    async def close(self) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+        try:
+            await self.flush()
+        finally:
+            await self._conn.close()
+
+
+class Namespace(MutableMapping[str, Any]):
+    """dict одного namespace; правку на месте (`db[k].append`) отметить через touch(k)."""
+
+    __slots__ = ("_data", "_kv", "name")
+
+    def __init__(self, kv: KV, name: str, data: dict[str, Any]) -> None:
+        self._kv = kv
+        self._data = data
+        self.name = name
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._data[key] = value
+        self._kv.mark(self.name, key)
+
+    def __delitem__(self, key: str) -> None:
+        del self._data[key]
+        self._kv.mark(self.name, key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._data
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    set = __setitem__
+
+    def touch(self, key: str) -> None:
+        if key not in self._data:
+            raise KeyError(key)
+        self._kv.mark(self.name, key)
+
+    async def flush(self) -> None:
+        await self._kv.flush()
+
+    def __repr__(self) -> str:
+        return f"Namespace({self.name!r}, {self._data!r})"
