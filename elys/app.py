@@ -15,6 +15,10 @@ from elys.core.loader import Loader
 from elys.core.registry import Registry
 from elys.core.router import GROUP as ROUTER_GROUP
 from elys.core.router import Router
+from elys.inline.bot import BotService
+from elys.inline.form import Inline
+from elys.inline.forum import Forum
+from elys.log import telegram_handler
 from elys.sdk.module import Module, find
 from elys.settings import Settings
 from elys.storage.files import private_directory
@@ -37,6 +41,9 @@ class App:
         self.banners_enabled = True
         self.language = "ru"
         self.bot = None
+        self.bot_service = None
+        self.forum = None
+        self.inline = None
         self.loader = None
 
     async def run(self) -> None:
@@ -62,6 +69,19 @@ class App:
             self.premium = bool(self.client.me.is_premium)
             for handler in self.router.handlers():
                 self.client.add_handler(handler, ROUTER_GROUP)
+
+            # Сначала ищем форум (в нём может сидеть бот), затем бота; создаём только то, чего нет.
+            self.forum = Forum(self)
+            self.bot_service = BotService(self)
+            await self.bot_service.start()
+            stack.push_async_callback(self.bot_service.stop)
+            await self.forum.ensure()
+            self.inline = Inline(self)
+            stack.push_async_callback(self.inline.close)
+            await self.inline.start()
+            telegram = telegram_handler()
+            telegram.attach(lambda text: self.forum.send("errors", text))
+            stack.push_async_callback(telegram.stop)
 
             stack.push_async_callback(self.unload_all)
             for name in builtin.NAMES:

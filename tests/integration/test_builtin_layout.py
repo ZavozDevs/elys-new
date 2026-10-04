@@ -6,6 +6,8 @@ from pyrogram.parser import Parser
 from pyrogram.raw.types import MessageEntityBlockquote, MessageEntityCode, MessageEntityCustomEmoji
 
 from elys import Module
+from elys.builtin.configure import apply_core
+from tests.inline_helpers import last_unit
 from tests.integration.test_loader import app as app
 from tests.integration.test_loader import source as source
 from tests.integration.test_stage2_commands import invoke, setup
@@ -19,9 +21,15 @@ async def parse(text):
 async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
     await setup(app)
     app.premium = premium
-    for command in (".help", ".help Ping", ".prefs", ".lm", ".dlm", ".ping", ".prefs banners off"):
+    for command in (".help", ".help Ping", ".lm", ".dlm", ".ping", ".config"):
         message = await invoke(app, command)
-        text = message.edits[-1]
+        if command == ".config":
+            # Команда удаляется, а экран — это текст формы в чате.
+            assert message.deleted and not message.edits
+            text = app.inline._text(last_unit(app).data["text"])
+        else:
+            assert not message.deleted
+            text = message.edits[-1]
         parsed = await parse(text)
         assert any(isinstance(e, MessageEntityBlockquote) for e in parsed["entities"]), command
         assert any(isinstance(e, MessageEntityCode) for e in parsed["entities"]), command
@@ -33,7 +41,7 @@ async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
     # Справка не превращается в инструкцию по установке и план разработки.
     overview = (await parse((await invoke(app, ".help")).edits[0]))["message"]
     assert len(overview) < 550
-    assert ".dlm" in overview and ".prefs" in overview and ".help Ping" in overview
+    assert ".dlm" in overview and ".config" in overview and ".help Ping" in overview
     detail = (await invoke(app, ".help Ping")).edits[0]
     assert "этап" not in detail and ".config" not in detail
 
@@ -52,8 +60,8 @@ async def test_layout_escapes_dynamic_content_and_uses_current_prefix(app):
         pass
 
     await app.load(item)
-    await invoke(app, ".prefs prefix <&")
-    for command in ("help", "help <Demo&>", "prefs", "lm", "dlm"):
+    apply_core(app, "prefixes", "<&")
+    for command in ("help", "help <Demo&>", "lm", "dlm"):
         response = (await invoke(app, "<&" + command)).edits[0]
         assert "<Demo&>" not in response and "<Author&>" not in response
         parsed = await parse(response)
@@ -74,7 +82,7 @@ async def test_disabled_module_has_executable_restore_hint(app, source, language
     app.language = language
     loaded = await invoke(app, f".dlm {source} --trust")
     assert "<blockquote>" in loaded.edits[-1]
-    await invoke(app, ".prefs prefix !")
+    apply_core(app, "prefixes", "!")
     response = await invoke(app, "!ulm Hello")
     assert "<code>!lm hello</code>" in response.edits[-1]
     assert "<code>!lm Hello</code>" not in response.edits[-1]

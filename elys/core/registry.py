@@ -29,6 +29,7 @@ class Resources:
     commands: tuple = ()
     handlers: list = field(default_factory=list)
     tasks: set = field(default_factory=set)
+    units: set[str] = field(default_factory=set)
 
     async def close(self):
         # команда может выключить собственный модуль; саму себя не ждём.

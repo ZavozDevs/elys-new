@@ -5,11 +5,11 @@ from pyrogram.types import Message
 
 from elys import Config, E, Module, UserError, html, raw_args, respond
 
-module = Module("Help", config=Config(banner=Config.url(doc="Картинка над справкой; пусто — без картинки")), strings={
+module = Module("Help", config=Config(banner=Config.url(doc="Картинка над справкой")), strings={
     "ru": {
         "intro": "{e:info} <b>Elys · команды</b>\n"
                  "Команда — обычное сообщение с <code>{p}</code> в начале. Только от тебя.",
-        "next": "Описание → <code>{p}help Ping</code>\nНастройки → <code>{p}prefs</code>",
+        "next": "Описание → <code>{p}help Ping</code>\nНастройки → <code>{p}config</code>",
         "author": "Автор: {author}",
         "background": "Работает в фоне, без команд.",
         "listens_all": "{e:warn_security} Слушает все сообщения — без ограничения области работы.",
@@ -19,7 +19,7 @@ module = Module("Help", config=Config(banner=Config.url(doc="Картинка н
         "intro": "{e:info} <b>Elys · commands</b>\n"
                  "Elys — your account assistant. Send a message starting with <code>{p}</code>. "
                  "Only you can run commands.",
-        "next": "Details → <code>{p}help Ping</code>\nSettings → <code>{p}prefs</code>",
+        "next": "Details → <code>{p}help Ping</code>\nSettings → <code>{p}config</code>",
         "author": "Author: {author}",
         "background": "Runs in the background, no commands.",
         "listens_all": "{e:warn_security} Listens to all messages — no scope restriction.",

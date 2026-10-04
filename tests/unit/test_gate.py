@@ -92,3 +92,33 @@ async def test_dispatcher_wraps_message_parsers(monkeypatch):
     result, handler = await parse(f.new(f.message(T.PeerUser(user_id=5), out=True)), {}, {})
     assert result is parsed
     assert handler is pyrogram.handlers.MessageHandler
+
+
+def test_saved_messages_arrive_as_incoming_but_belong_to_the_owner():
+    # Telegram помечает сообщения владельца в «Избранном» как out=False, автор — он сам.
+    g = Gate(owner_id=lambda: 5)
+    g.rebuild([])
+    assert g(f.new(f.message(T.PeerUser(user_id=5))), {})  # настоящее сообщение: from_id пустой
+    assert g(f.new(f.message(T.PeerUser(user_id=5), from_id=T.PeerUser(user_id=5))), {})
+    assert not g(f.new(f.message(T.PeerUser(user_id=6), from_id=T.PeerUser(user_id=6))), {})  # чужой собеседник
+    assert not g(f.new(f.message(CHAT, from_id=T.PeerUser(user_id=5))), {})  # группа, даже если пишет владелец
+    assert g.short(f.short_private(5)) and not g.short(f.short_private(6))
+    unknown = Gate()  # клиент ещё не вошёл: владельца нет, ничего не пропускаем
+    assert not unknown(f.new(f.message(T.PeerUser(user_id=5))), {})
+
+
+@pytest.mark.parametrize("is_self, outgoing", [(True, True), (False, False)])
+async def test_dispatcher_marks_own_saved_message_outgoing(monkeypatch, is_self, outgoing):
+    from types import SimpleNamespace
+
+    message = SimpleNamespace(from_user=SimpleNamespace(is_self=is_self), outgoing=False)
+
+    async def fake_parse(*args, **kwargs):
+        return message
+
+    monkeypatch.setattr(pyrogram.types.Message, "_parse", fake_parse)
+    client = pyrogram.Client("t", api_id=1, api_hash="x", in_memory=True)
+    dispatcher = GateDispatcher(client, Gate(owner_id=lambda: 5))
+    parse = dispatcher.update_parsers[T.UpdateNewMessage]
+    result, _ = await parse(f.new(f.message(T.PeerUser(user_id=5), from_id=T.PeerUser(user_id=5))), {}, {})
+    assert result is message and message.outgoing is outgoing

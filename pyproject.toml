@@ -45,6 +45,7 @@ type = "layers"
 layers = [
     "elys.builtin",
     "elys.sdk",
+    "elys.inline",
     "elys.core",
     "elys.storage",
 ]

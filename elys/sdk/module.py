@@ -143,12 +143,14 @@ class Module:
 
     def callback(self, prefix: str):
         async def matches(_, client, query):
-            return isinstance(query.data, str) and query.data.startswith(prefix)
+            return (query.from_user is not None and query.from_user.id == self.client.me.id
+                    and isinstance(query.data, str) and query.data.startswith(prefix))
         return self._bot_watcher(CallbackQueryHandler, filters_api.create(matches))
 
     def inline(self, query: str):
         async def matches(_, client, update):
-            return update.query == query
+            return (update.from_user is not None and update.from_user.id == self.client.me.id
+                    and update.query == query)
         return self._bot_watcher(InlineQueryHandler, filters_api.create(matches))
 
     def _bot_watcher(self, kind, filters):
@@ -178,6 +180,15 @@ class Module:
 
     # рантайм
 
+    async def form(self, message, text, buttons=(), **kwargs):
+        return await self.app.inline.form(self, message, text, buttons, **kwargs)
+
+    async def list(self, message, pages, **kwargs):
+        return await self.app.inline.listing(self, message, pages, **kwargs)
+
+    async def gallery(self, message, photos, **kwargs):
+        return await self.app.inline.gallery(self, message, photos, **kwargs)
+
     def spawn(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
         # фоновая задача модуля, отменяется при выгрузке.
         if not self.loaded:
@@ -200,7 +211,7 @@ class Module:
         if self._app is not None:
             raise RuntimeError(f"{self.name} уже загружен")
         if self._bot_handlers and getattr(app, "bot", None) is None:
-            raise LoadError("этому модулю нужен инлайн-бот; он появится на этапе 3")
+            raise LoadError("этому модулю нужен бот-помощник; перезапусти Elys для его подключения")
         self.config.bind(app.kv.ns(f"cfg:{self.name}"))
         app.router.add(*self._commands)
         self._app, self._group = app, group
@@ -244,6 +255,9 @@ class Module:
             return
         self.loaded = False
         self.app.router.remove(self)
+        inline = getattr(self.app, "inline", None)
+        if inline is not None:
+            inline.units.remove_owner(self)
         token = current.set(self.app)
         try:
             for hook in self._on_unload:

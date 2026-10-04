@@ -17,6 +17,9 @@ class ConfigValue:
     secret: bool = False
     choices: tuple = ()
     url: bool = False
+    min: int | float | None = None
+    max: int | float | None = None
+    item_type: type | None = None
 
     def validate(self, value):
         _validate(value)
@@ -25,9 +28,20 @@ class ConfigValue:
         if self.choices and value not in self.choices:
             raise ValueError("выбери одно из: " + ", ".join(map(str, self.choices)))
         if self.url and value:
+            if isinstance(value, str) and not value.startswith(("http://", "https://")) and "." in value:
+                value = "https://" + value
             parts = urlsplit(value)
             if parts.scheme not in {"https", "http"} or not parts.hostname or parts.username or parts.password:
                 raise ValueError("нужна ссылка http(s) без пароля или пустая строка")
+        if isinstance(value, (int, float)) and type(value) is not bool:
+            if self.min is not None and value < self.min:
+                raise ValueError(f"значение не должно быть меньше {self.min}")
+            if self.max is not None and value > self.max:
+                raise ValueError(f"значение не должно быть больше {self.max}")
+        if isinstance(value, list) and self.item_type is not None:
+            for item in value:
+                if type(item) is not self.item_type:
+                    raise ValueError(f"элементы списка должны быть типа {self.item_type.__name__}")
         return value
 
 
@@ -57,6 +71,18 @@ class Config(MutableMapping):
     @staticmethod
     def url(default="", *, doc=""):
         return ConfigValue(default, doc, url=True)
+
+    @staticmethod
+    def integer(default=0, *, min=None, max=None, doc=""):
+        return ConfigValue(int(default), doc, min=min, max=max)
+
+    @staticmethod
+    def number(default=0.0, *, min=None, max=None, doc=""):
+        return ConfigValue(float(default), doc, min=min, max=max)
+
+    @staticmethod
+    def series(default=None, *, item_type=str, doc=""):
+        return ConfigValue([] if default is None else list(default), doc, item_type=item_type)
 
     def bind(self, store):
         # испорченный конфиг не применяется частично и не теряется молча.

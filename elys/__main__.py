@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from collections.abc import Coroutine
 from typing import Any
@@ -15,6 +16,7 @@ from pyrogram.types import User
 from elys import __version__, log, settings
 from elys.core import clients
 from elys.core.clients import NotLoggedIn
+from elys.inline.bot import BotSetupError
 
 FIRST_RUN = "запусти Elys один раз в терминале командой: python -m elys"
 NO_INPUT = "Ввод закрыт. Включи ввод в консоли панели или " + FIRST_RUN
@@ -57,6 +59,10 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(NO_INPUT)
     except NotLoggedIn:
         sys.exit(f"Нужно войти в аккаунт — {FIRST_RUN}")
+    except BotSetupError as e:
+        with log.quiet():
+            logging.getLogger(__name__).error("Не удалось настроить бота-помощника: %s", e)
+        sys.exit(f"Не удалось настроить бота-помощника: {e}")
     except (errors.ApiIdInvalid, errors.ApiIdPublishedFlood):
         from elys import wizard
 

@@ -5,7 +5,7 @@ from pyrogram.types import Message
 
 from elys import Config, Module, respond
 
-module = Module("Ping", config=Config(banner=Config.url(doc="Картинка над ответом; пусто — без картинки")))
+module = Module("Ping", config=Config(banner=Config.url(doc="Картинка над ответом")))
 
 
 @module.command("ping")

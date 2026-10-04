@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from pyrogram import filters
@@ -161,24 +162,31 @@ def test_find():
         find({}, "none")
 
 
-async def test_welcome_is_shown_once_in_terminal(host, caplog):
+async def test_welcome_is_shown_once_per_forum(host):
     from elys.builtin.welcome import module as welcome
 
-    sent = []
-
-    async def send_message(chat_id, text):
-        sent.append((chat_id, text))
-
-    host.client.send_message = send_message
-    with caplog.at_level("INFO", logger="elys.mod.Welcome"):
+    host.bot = host.client
+    host.bot.send_message = AsyncMock(return_value=SimpleNamespace(id=22))
+    host.bot.pin_chat_message = AsyncMock()
+    host.forum = SimpleNamespace(chat_id=-10077, state={}, _save=AsyncMock())
+    for _ in range(2):
         await welcome.attach(host, group=0)
+        await welcome.ready()
         await welcome.detach()
-        await welcome.attach(host, group=0)
-        await welcome.detach()
-    shown = [r.getMessage() for r in caplog.records if r.name == "elys.mod.Welcome"]
-    assert len(shown) == 1
-    assert "напиши .ping" in shown[0]
-    assert sent == []  # в «Избранное» и вообще в чаты не пишем
+    host.bot.send_message.assert_awaited_once()
+    assert host.bot.send_message.call_args.args[0] == -10077
+    text = host.bot.send_message.call_args.args[1]
+    assert ".ping" in text and ".config" in text
+    assert host.forum.state["welcome"] == 22
+    host.bot.pin_chat_message.assert_awaited_once()
+    # Пересозданный форум получает новое приветствие, независимо от старого mod:Welcome/shown.
+    host.forum.state = {}
+    host.forum.chat_id = -10088
+    await welcome.attach(host, group=0)
+    await welcome.ready()
+    await welcome.detach()
+    assert host.bot.send_message.await_count == 2
+    assert host.bot.send_message.call_args.args[0] == -10088
 
 
 async def test_double_attach_does_not_corrupt_registration(host):

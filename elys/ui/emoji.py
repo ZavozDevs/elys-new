@@ -7,6 +7,9 @@ from pathlib import Path
 
 import yaml
 
+# Заглушка inline-результата с премиум-эмодзи: Telegram вырезает custom_emoji из результатов,
+# поэтому отправляем её, а затем правим сообщение полным текстом (премиум остаётся при правке).
+PLACEHOLDER = "⭐"
 TOKEN = re.compile(r"\{e:([\w]+)\}")
 
 

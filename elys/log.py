@@ -8,11 +8,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import html
 import logging
 import os
 import sys
+import traceback
+from collections import deque
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import ClassVar
@@ -81,6 +85,74 @@ class ConsoleFormatter(logging.Formatter):
         return head + text.replace("\n", "\n" + " " * indent)
 
 
+class TelegramLogHandler(logging.Handler):
+    """Буфер с запуска; сетевые ошибки доставки не попадают обратно в буфер."""
+
+    def __init__(self):
+        super().__init__(logging.ERROR)
+        self.pending = deque(maxlen=200)
+        self.task = None
+        self.sink = None
+        self.addFilter(ErrorId())
+
+    def emit(self, record):
+        if getattr(record, "no_telegram", False):
+            return
+        tag = getattr(record, "error_id", None) or new_error_id()
+        details = record.getMessage()
+        if record.exc_info:
+            details += "\n" + "".join(traceback.format_exception(*record.exc_info))
+        # Делим до экранирования: даже 500 кавычек после escape укладываются в лимит.
+        # Полный трейсбек сохраняется, длинный — несколькими сообщениями с одним номером.
+        for offset in range(0, max(1, len(details)), 500):
+            chunk = html.escape(details[offset:offset + 500])
+            self.pending.append(f"⚠️ Не удалось выполнить действие · ошибка <code>#{html.escape(str(tag))}</code>\n"
+                                f"<blockquote expandable>{chunk}</blockquote>\n"
+                                "Если ошибка повторяется, передай эти подробности автору модуля.")
+
+    def attach(self, sink):
+        self.sink = sink
+        self.task = asyncio.create_task(self._run())
+
+    async def flush_pending(self):
+        while self.pending:
+            batch = []
+            while self.pending and sum(map(len, batch)) + len(self.pending[0]) + 2 * len(batch) < 4000:
+                batch.append(self.pending.popleft())
+            try:
+                result = await self.sink("\n\n".join(batch))
+                if result is None:
+                    self.pending.extendleft(reversed(batch))
+                    return
+            except Exception:
+                self.pending.extendleft(reversed(batch))
+                logging.getLogger(__name__).exception("Не удалось отправить ошибки в Telegram",
+                                                      extra={"no_telegram": True})
+                return
+
+    async def _run(self):
+        while True:
+            await asyncio.sleep(5)
+            await self.flush_pending()
+
+    async def stop(self):
+        if self.task:
+            self.task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.task
+        logging.getLogger().removeHandler(self)
+        self.close()
+
+
+def telegram_handler():
+    root = logging.getLogger()
+    handler = next((h for h in root.handlers if isinstance(h, TelegramLogHandler)), None)
+    if handler is None:
+        handler = TelegramLogHandler()
+        root.addHandler(handler)
+    return handler
+
+
 class PrivateFileHandler(RotatingFileHandler):
     def _open(self):
         private_file(Path(self.baseFilename))
@@ -106,6 +178,7 @@ def setup(level: str | int, file: Path) -> None:
         handler.close()
     root.addHandler(console)
     root.addHandler(rotating)
+    root.addHandler(TelegramLogHandler())
     root.setLevel(level)
     _console = console
     # wzgram на INFO пишет каждое переподключение

@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from pyrogram.types import User
@@ -53,13 +54,35 @@ async def test_lifecycle_flushes_hooks_and_closes_every_module(tmp_path, monkeyp
     monkeypatch.setattr(app_module, "import_module", lambda name: SimpleNamespace(module={
         "first": first, "second": second,
     }[name.rsplit(".", 1)[-1]]))
+    async def bot_start():
+        events.append("bot start")
+        app.bot = SimpleNamespace()
+
+    async def bot_stop():
+        events.append("bot stop")
+
+    async def ensure_forum():
+        events.append("forum")
+        return SimpleNamespace(send=AsyncMock())
+
+    async def inline_start():
+        events.append("inline start")
+
+    async def inline_stop():
+        events.append("inline stop")
+
+    monkeypatch.setattr(app_module, "BotService", lambda app: SimpleNamespace(start=bot_start, stop=bot_stop))
+    monkeypatch.setattr(app_module, "Forum", lambda app: SimpleNamespace(ensure=ensure_forum, send=AsyncMock()))
+    monkeypatch.setattr(app_module, "Inline", lambda app: SimpleNamespace(
+        start=inline_start, close=inline_stop, units=SimpleNamespace(remove_owner=lambda owner: None)))
     app = App(Settings(api_id=1, api_hash="h", data_dir=tmp_path))
     if cancel_unload:
         with pytest.raises(asyncio.CancelledError):
             await app.run()
     else:
         await app.run()
-    assert events == ["start", "load", "idle", "unload second", "unload first", "stop"]
+    assert events == ["start", "bot start", "forum", "inline start", "load", "idle",
+                      "unload second", "unload first", "inline stop", "bot stop", "stop"]
     assert app.modules == {}
     assert not first.loaded and not second.loaded
     assert not client.gate.matcher

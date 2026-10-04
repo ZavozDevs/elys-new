@@ -78,7 +78,7 @@ class Router:
                 if not name or name != name.lower() or any(c.isspace() for c in name):
                     raise ValueError(f"плохое имя команды: {name!r}")
                 if name in self.aliases:
-                    raise ValueError(f"имя {name!r} занято пользовательским сокращением; удали его в prefs")
+                    raise ValueError(f"имя {name!r} занято пользовательским сокращением; удали его в config")
                 other = pending.get(name) or self._commands.get(name)
                 if other is not None and other is not command:
                     raise CommandConflict(name, other.owner.name)

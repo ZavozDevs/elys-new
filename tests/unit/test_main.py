@@ -73,6 +73,22 @@ def test_closed_input_has_actionable_message(tmp_path, monkeypatch, configured):
         cli.main([])
 
 
+def test_bot_setup_failure_has_actionable_message(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "load", lambda: settings.Settings(api_id=1, api_hash="h", data_dir=tmp_path))
+    monkeypatch.setattr(cli.log, "setup", Mock())
+
+    class BrokenApp:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def run(self):
+            raise cli.BotSetupError("Открой @BotFather и проверь ограничения.")
+
+    monkeypatch.setattr(app, "App", BrokenApp)
+    with pytest.raises(SystemExit, match=r"Не удалось настроить бота-помощника.*BotFather"):
+        cli.main([])
+
+
 async def test_failed_logout_stops_client(tmp_path, monkeypatch):
     client = Mock(
         start=AsyncMock(), log_out=AsyncMock(side_effect=errors.FloodWait(1)), stop=AsyncMock(), is_initialized=True
