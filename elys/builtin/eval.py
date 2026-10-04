@@ -20,7 +20,7 @@ LIMIT = 4000  # лимит текста telegram 4096, с запасом на з
 
 @module.command("e", aliases=["eval"])
 async def evaluate(client: Client, message: Message) -> None:
-    """<код> — выполнить python, await можно на верхнем уровне"""
+    # <код> — выполнить python, await можно на верхнем уровне
     source = raw_args(message)
     if not source:
         raise UserError("Напиши код после команды, например: 2 + 2")
@@ -50,7 +50,7 @@ async def evaluate(client: Client, message: Message) -> None:
     else:
         body, ok = out.getvalue() + ("" if result is None else _show(result)), True
 
-    # Лимит — по тексту после разбора HTML, не по длине &lt; и других entities.
+    # лимит — по тексту после разбора HTML, не по длине &lt; и других entities.
     code = _truncate(source, 1000)
     room = LIMIT - len(code.encode("utf-16-le")) // 2
     body = _truncate(body.strip() or "None", room)
@@ -61,7 +61,7 @@ async def evaluate(client: Client, message: Message) -> None:
 
 
 async def run(source: str, env: dict[str, Any]) -> Any:
-    """выполнить код; значение последнего выражения — результат."""
+    # выполнить код; значение последнего выражения — результат.
     tree = ast.parse(source, FILENAME)
     last = tree.body[-1] if tree.body else None
     if isinstance(last, ast.Expr):

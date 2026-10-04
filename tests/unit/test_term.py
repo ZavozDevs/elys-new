@@ -107,7 +107,7 @@ SCRIPT = textwrap.dedent(
 
 
 def run_in_pty(*steps: tuple[bytes, bytes]) -> str:
-    """steps: (дождаться этого в выводе, потом нажать это)."""
+    # steps: (дождаться этого в выводе, потом нажать это).
     master, slave = pty.openpty()
     proc = subprocess.Popen(
         [sys.executable, "-c", SCRIPT],

@@ -1,4 +1,4 @@
-"""Module: декораторы только собирают метаданные, регистрация — в attach()."""
+# module: декораторы только собирают метаданные, регистрация — в attach().
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ class Module:
     # рантайм
 
     def spawn(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
-        """фоновая задача модуля, отменяется при выгрузке."""
+        # фоновая задача модуля, отменяется при выгрузке.
         if not self.loaded:
             coro.close()
             raise RuntimeError(f"{self.name} не загружен")

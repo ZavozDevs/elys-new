@@ -1,4 +1,4 @@
-"""App: сборка сервисов и жизненный цикл."""
+# app: сборка сервисов и жизненный цикл.
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ class App:
 
             self.router = Router(self.kv.ns("core").get("prefixes", settings.prefixes))
             self.client = clients.user(settings, version=__version__, login=self.login)
-            # Без сессии сначала мастер входа — не мешаем ему.
+            # без сессии сначала мастер входа — не мешаем ему.
             if (settings.data_dir / f"{clients.SESSION}.session").exists():
                 log.info("подключаюсь к Telegram…")
             await self.client.start()

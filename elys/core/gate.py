@@ -1,4 +1,4 @@
-"""гейт: отсев чужих сообщений по raw-полям, до парсинга и до сетевых запросов."""
+# гейт: отсев чужих сообщений по raw-полям, до парсинга и до сетевых запросов.
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ Parser = Callable[[Any, dict, dict], Awaitable[tuple[Any, type]]]
 
 
 class Gate:
-    """синхронный предикат на frozenset/dict; state меняется целиком присваиванием."""
+    # синхронный предикат на frozenset/dict; state меняется целиком присваиванием.
 
     __slots__ = ("listeners", "matcher")
 
@@ -35,7 +35,7 @@ class Gate:
         if getattr(message, "out", False) or self.listeners:
             return True
         peer = getattr(message, "peer_id", None)
-        if peer is None:  # MessageEmpty
+        if peer is None:  # пустое сообщение
             return False
         chat_id, chat_type = _chat(peer, chats)
         return self.matcher(key(chat_type, edited=edited), chat_id)
@@ -62,7 +62,7 @@ def _chat(peer: Any, chats: dict) -> tuple[int, int]:
 
 
 class GateDispatcher(Dispatcher):
-    """диспетчер wzgram, у которого парсеры сообщений сначала спрашивают гейт."""
+    # диспетчер wzgram, у которого парсеры сообщений сначала спрашивают гейт.
 
     def __init__(self, client: Any, gate: Gate) -> None:
         super().__init__(client)

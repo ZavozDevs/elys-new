@@ -1,7 +1,6 @@
-"""терминал без зависимостей: цвета, вопросы, меню стрелками, QR полублоками.
-
-termios/select/getpass импортируются только когда что-то спрашиваем — обычный запуск их не грузит.
-"""
+# терминал без зависимостей: цвета, вопросы, меню стрелками, qr полублоками.
+#
+# termios/select/getpass импортируются только когда что-то спрашиваем — обычный запуск их не грузит.
 
 from __future__ import annotations
 
@@ -86,17 +85,16 @@ _CONTROL = {
     "\n": ENTER,
     "\x7f": BACKSPACE,
     "\x08": BACKSPACE,
-    "\x15": CLEAR,  # Ctrl+U
-    "\x03": INTERRUPT,  # Ctrl+C
-    "\x04": INTERRUPT,  # Ctrl+D
+    "\x15": CLEAR,  # ctrl+u
+    "\x03": INTERRUPT,  # ctrl+c
+    "\x04": INTERRUPT,  # ctrl+d
 }
 
 
 def split_keys(data: str) -> tuple[list[str], str]:
-    """разбирает ввод на клавиши; возвращает (клавиши, недочитанный хвост escape-последовательности).
-
-    печатный символ — сам символ, особые клавиши — имена из констант выше, неизвестное — "".
-    """
+    # разбирает ввод на клавиши; возвращает (клавиши, недочитанный хвост escape-последовательности).
+    #
+    # печатный символ — сам символ, особые клавиши — имена из констант выше, неизвестное — "".
     keys: list[str] = []
     i = 0
     while i < len(data):
@@ -136,7 +134,7 @@ class _Reader:
 
         while not self.queue:
             if self.rest and not select.select([self.fd], [], [], 0.05)[0]:
-                self.rest = ""  # одиночный Esc
+                self.rest = ""  # одиночный esc
                 return ESC
             chunk = os.read(self.fd, 256)
             if not chunk:
@@ -159,7 +157,7 @@ def interactive() -> bool:
 @contextmanager
 def _raw(fd: int) -> Iterator[None]:
     # посимвольно, без эха; Ctrl+C приходит как \x03 (ISIG выкл) — так поток ввода завершается сам.
-    # OPOST не трогаем: \n по-прежнему переводит строку.
+    # opost не трогаем: \n по-прежнему переводит строку.
     import termios
 
     old = termios.tcgetattr(fd)
@@ -179,7 +177,7 @@ def _raw(fd: int) -> Iterator[None]:
 
 
 class Field:
-    """состояние поля: буфер, ошибка под полем, результат. рисование — снаружи."""
+    # состояние поля: буфер, ошибка под полем, результат. рисование — снаружи.
 
     def __init__(
         self,
@@ -204,7 +202,7 @@ class Field:
         self.value: Any = None
 
     def feed(self, key: str) -> bool:
-        """True — ввод принят, значение в self.value."""
+        # true — ввод принят, значение в self.value.
         if key == INTERRUPT:
             raise KeyboardInterrupt
         if key == ENTER:
@@ -242,7 +240,7 @@ def _field_tty(field: Field, again: bool) -> Any:
     fd = sys.stdin.fileno()
     reserved = False  # строка под полем уже есть — дальше ходим по ней без прокрутки
     if again:
-        write("\x1b[1A\r\x1b[2K")  # повтор после ошибки от Telegram — на месте прошлой попытки
+        write("\x1b[1A\r\x1b[2K")  # повтор после ошибки от telegram — на месте прошлой попытки
 
     def render(done: bool = False) -> None:
         nonlocal reserved
@@ -295,10 +293,9 @@ def _field_plain(field: Field) -> Any:
 
 
 def ask(label: str, parse: Parse | None = None, hint: str = "", *, again: bool = False, **kwargs: Any) -> Any:
-    """спросить значение; parse возвращает None для неподходящего — тогда hint под полем и ещё раз.
-
-    again=True — повтор того же поля сразу после него (ошибка от Telegram): рисуем поверх прошлой попытки.
-    """
+    # спросить значение; parse возвращает None для неподходящего — тогда hint под полем и ещё раз.
+    #
+    # again=True — повтор того же поля сразу после него (ошибка от telegram): рисуем поверх прошлой попытки.
     field = Field(label, parse, hint, **kwargs)
     return _field_tty(field, again) if interactive() else _field_plain(field)
 
@@ -307,7 +304,7 @@ def ask(label: str, parse: Parse | None = None, hint: str = "", *, again: bool =
 
 
 def choose(question: str, options: Sequence[tuple[str, str]], default: int = 0) -> int:
-    """выбор стрелками (или цифрой); без tty — список с номерами."""
+    # выбор стрелками (или цифрой); без tty — список с номерами.
     if not interactive():
         return _choose_plain(question, options, default)
     n = len(options)
@@ -382,7 +379,7 @@ async def achoose(question: str, options: Sequence[tuple[str, str]], default: in
     return await _in_thread(choose, question, options, default)
 
 
-# перерисовываемый блок (QR)
+# перерисовываемый блок (qr)
 
 
 class Area:
@@ -402,7 +399,7 @@ class Area:
 
 
 def qr_lines(matrix: Sequence[Sequence[bool]], *, color: bool | None = None, indent: int = 4) -> list[str]:
-    """QR полублоками: две строки модулей в одной строке терминала."""
+    # qr полублоками: две строки модулей в одной строке терминала.
     if color is None:
         color = colors_enabled()
     rows = [list(row) for row in matrix]

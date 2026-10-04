@@ -1,4 +1,4 @@
-"""внутренности wzgram, на которые опирается ядро. падает первым при обновлении wzgram."""
+# внутренности wzgram, на которые опирается ядро. падает первым при обновлении wzgram.
 
 import inspect
 from types import SimpleNamespace
@@ -50,7 +50,7 @@ def test_short_branch_does_get_difference():
 
 
 def test_update_watchdog_fields():
-    # ElysClient.handle_updates обновляет их сам, когда режет короткий апдейт: иначе watchdog решит, что связь пропала
+    # клиент обновляет их сам, когда режет короткий апдейт: иначе watchdog решит, что связь пропала
     source = inspect.getsource(pyrogram.Client)
     assert "self._last_update_monotonic = time.monotonic()" in source
     assert "time.monotonic() - self._last_update_monotonic" in source

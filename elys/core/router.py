@@ -1,4 +1,4 @@
-"""роутер команд: префикс → dict-поиск → проверка прав → задача владельца."""
+# роутер команд: префикс → dict-поиск → проверка прав → задача владельца.
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ class Router:
         self._first = frozenset(p[0] for p in self._prefixes)
 
     def add(self, *commands: Command) -> None:
-        # Проверяем и текущие команды, и всю пачку до изменения реестра.
+        # проверяем и текущие команды, и всю пачку до изменения реестра.
         pending: dict[str, Command] = {}
         for command in commands:
             for name in command.names:

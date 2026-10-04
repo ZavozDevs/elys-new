@@ -1,4 +1,4 @@
-"""scope: какие raw-сообщения нужны вотчеру — гейт проверяет это до парсинга."""
+# scope: какие raw-сообщения нужны вотчеру — гейт проверяет это до парсинга.
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def key(chat_type: int, *, out: bool = False, edited: bool = False) -> int:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Scope:
-    """маска по категориям: внутри категории «или», между категориями «и», 0 — любые."""
+    # маска по категориям: внутри категории «или», между категориями «и», 0 — любые.
 
     kinds: int = 0
     directions: int = 0
@@ -81,7 +81,7 @@ Scope.ALL = Scope()
 
 
 class Matcher:
-    """сводный scope всех вотчеров: проверка — один-два поиска в frozenset."""
+    # сводный scope всех вотчеров: проверка — один-два поиска в frozenset.
 
     __slots__ = ("any_chat", "by_chat")
 

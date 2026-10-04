@@ -1,4 +1,4 @@
-"""настройки: data/settings.toml (его пишет мастер первого запуска), поверх — переменные ELYS_<ПОЛЕ>."""
+# настройки: data/settings.toml (его пишет мастер первого запуска), поверх — переменные ELYS_<ПОЛЕ>.
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ def _api_hash(value: Any) -> str:
 
 
 def _table(value: Any) -> dict[str, dict[str, float]]:
-    # В env — JSON; в settings.toml — обычная таблица.
+    # в env — json; в settings.toml — обычная таблица.
     if isinstance(value, str):
         value = json.loads(value)
     if not isinstance(value, dict):

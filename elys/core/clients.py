@@ -1,4 +1,4 @@
-"""клиент юзербота: дефолты без лишних запросов + гейт коротких апдейтов."""
+# клиент юзербота: дефолты без лишних запросов + гейт коротких апдейтов.
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class ElysClient(Client):
             await super().start()
         except BaseException:
             # wzgram не ловит CancelledError/SystemExit при авторизации.
-            # Ошибка повторного start не должна закрывать уже работающий клиент.
+            # ошибка повторного start не должна закрывать уже работающий клиент.
             if not was_connected and self.is_connected:
                 await self.disconnect()
             raise
@@ -54,7 +54,7 @@ class ElysClient(Client):
         return self
 
     async def handle_updates(self, updates: Any) -> Any:
-        # Внутренний контракт wzgram 3.1.3 — при обновлении проверять tests/compat.
+        # внутренний контракт wzgram 3.1.3 — при обновлении проверять tests/compat.
         # wzgram на каждое короткое сообщение делает GetDifference — чужие режем до него
         if isinstance(updates, _SHORT) and not self.gate.short(updates):
             self.last_update_time = datetime.now()

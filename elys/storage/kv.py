@@ -1,4 +1,4 @@
-"""kv: всё в памяти, запись в sqlite пачкой через `delay` после первого изменения."""
+# kv: всё в памяти, запись в sqlite пачкой через `delay` после первого изменения.
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ class KV:
                     if key not in space:
                         deletes.append((ns, key))
                         continue
-                    # Сериализация остаётся пакетной. Невалидные правки на месте
+                    # сериализация остаётся пакетной. невалидные правки на месте
                     # не теряем: вся пачка остаётся dirty, flush сообщает ошибку.
                     _validate(space[key])
                     value = json.dumps(space[key], ensure_ascii=False, separators=(",", ":"), allow_nan=False)
@@ -123,7 +123,7 @@ class KV:
 
 
 def _validate(value: Any, seen: set[int] | None = None) -> None:
-    """Только JSON-типы: без неявного преобразования tuple и ключей словаря."""
+    # только json-типы: без неявного преобразования tuple и ключей словаря.
     kind = type(value)
     if value is None or kind in (str, int, bool):
         return
@@ -149,10 +149,9 @@ def _validate(value: Any, seen: set[int] | None = None) -> None:
 
 
 class Namespace(MutableMapping[str, Any]):
-    """JSON-словарь. set/touch валидируют сразу; сериализация и запись — пачкой.
-
-    Правку на месте (`db[k].append`) обязательно отметить через touch(k).
-    """
+    # json-словарь. set/touch валидируют сразу; сериализация и запись — пачкой.
+    #
+    # правку на месте (`db[k].append`) обязательно отметить через touch(k).
 
     __slots__ = ("_data", "_kv", "name")
 

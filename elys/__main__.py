@@ -1,5 +1,5 @@
-"""python -m elys — запустить (в первый раз сам спросит ключи и вход)
-python -m elys logout — выйти из аккаунта"""
+# python -m elys — запустить (в первый раз сам спросит ключи и вход)
+# python -m elys logout — выйти из аккаунта
 
 from __future__ import annotations
 
