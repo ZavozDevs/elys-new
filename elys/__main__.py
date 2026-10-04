@@ -17,6 +17,7 @@ from elys.core import clients
 from elys.core.clients import NotLoggedIn
 
 FIRST_RUN = "запусти Elys один раз в терминале командой: python -m elys"
+NO_INPUT = "Ввод закрыт. Включи ввод в консоли панели или " + FIRST_RUN
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -24,14 +25,11 @@ def main(argv: list[str] | None = None) -> None:
     commands = parser.add_subparsers(dest="command")
     commands.add_parser("logout", help="выйти из аккаунта (при следующем запуске Elys спросит вход)")
     args = parser.parse_args(argv)
-    interactive = sys.stdin.isatty()
 
     try:
         try:
             config = settings.load()
         except settings.MissingKeys as e:
-            if not interactive:
-                sys.exit(f"Elys ещё не настроен — {FIRST_RUN}")
             from elys import wizard
 
             wizard.ask_keys(e.args[0])
@@ -41,6 +39,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(f"Ошибка в настройках: {e}")
     except OSError as e:
         sys.exit(f"Не удалось открыть данные Elys: {e}")
+    except EOFError:
+        sys.exit(NO_INPUT)
     except KeyboardInterrupt:
         sys.exit(1)
 
@@ -49,10 +49,12 @@ def main(argv: list[str] | None = None) -> None:
     else:
         from elys.app import App
 
-        coro = App(config, login=_login if interactive else None).run()
+        coro = App(config, login=_login).run()
 
     try:
         _run(coro)
+    except EOFError:
+        sys.exit(NO_INPUT)
     except NotLoggedIn:
         sys.exit(f"Нужно войти в аккаунт — {FIRST_RUN}")
     except (errors.ApiIdInvalid, errors.ApiIdPublishedFlood):

@@ -145,11 +145,19 @@ class _Reader:
 
 
 def interactive() -> bool:
-    if os.name != "posix" or not (sys.stdin.isatty() and sys.stdout.isatty()):
+    # Возможность перерисовки и посимвольного ввода, а не наличие ввода вообще:
+    # панели могут передавать строки через pipe без TTY.
+    if os.name != "posix" or os.environ.get("TERM") == "dumb":
+        return False
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return False
     try:
-        import termios  # noqa: F401
+        import termios
     except ImportError:
+        return False
+    try:
+        termios.tcgetattr(sys.stdin.fileno())
+    except (OSError, ValueError, termios.error):
         return False
     return True
 
@@ -276,18 +284,18 @@ def _field_plain(field: Field) -> Any:
     if field.default:
         label += paint(f" [{field.default}]", "dim")
     label += ": "
+    if field.secret and not sys.stdin.isatty():
+        hint("В этой консоли пароль может быть виден и сохранён в журнале панели.")
+        hint("Если к ней есть доступ у других людей, нажми Ctrl+C и выполни вход в личном терминале.")
     while True:
         if field.error:
             say(field.error_line())
-        try:
-            if field.secret:
-                from getpass import getpass
+        if field.secret and sys.stdin.isatty():
+            from getpass import getpass
 
-                field.buf = getpass(label)
-            else:
-                field.buf = input(label)
-        except EOFError:
-            raise KeyboardInterrupt from None
+            field.buf = getpass(label)
+        else:
+            field.buf = input(label)
         if field.feed(ENTER):
             return field.value
 
@@ -314,11 +322,12 @@ def choose(question: str, options: Sequence[tuple[str, str]], default: int = 0) 
 
     def option(i: int) -> str:
         title, note = options[i]
+        label = f"{i + 1}. {title.ljust(width)}"
         if i == selected:
-            return f" {paint('❯', 'accent')} {paint(title.ljust(width), 'accent')}   {paint(note, 'dim')}"
-        return f"   {title.ljust(width)}   {paint(note, 'dim')}"
+            return f" {paint('❯', 'accent')} {paint(label, 'accent')}   {paint(note, 'dim')}"
+        return f"   {label}   {paint(note, 'dim')}"
 
-    say(f"{paint('?', 'accent')} {paint(question, 'bold')}  {paint('(↑↓ и Enter)', 'dim')}")
+    say(f"{paint('?', 'accent')} {paint(question, 'bold')}  {paint('(↑↓ или цифра, затем Enter)', 'dim')}")
     up = f"\x1b[{n - 1}A" if n > 1 else ""
     fd = sys.stdin.fileno()
     write("\x1b[?25l")
@@ -332,7 +341,6 @@ def choose(question: str, options: Sequence[tuple[str, str]], default: int = 0) 
                     break
                 if key in digits:
                     selected = digits.index(key)
-                    break
                 if key == INTERRUPT:
                     raise KeyboardInterrupt
                 if key == UP:
@@ -357,7 +365,8 @@ def _choose_plain(question: str, options: Sequence[tuple[str, str]], default: in
     def parse(text: str) -> int | None:
         return int(text) - 1 if text.isdecimal() and 1 <= int(text) <= n else None
 
-    return ask("Номер", parse, f"введи цифру от 1 до {n}", default=str(default + 1))
+    hint("Введи номер и нажми Enter.")
+    return ask("Номер", parse, f"введи число от 1 до {n}", default=str(default + 1))
 
 
 # async-обёртки: ввод в своём потоке, как pyrogram.utils.ainput
@@ -393,7 +402,7 @@ class Area:
         self.lines = len(lines)
 
     def clear(self) -> None:
-        if self.lines and sys.stdout.isatty():
+        if self.lines and interactive():
             write(f"\x1b[{self.lines}F\x1b[J")
         self.lines = 0
 

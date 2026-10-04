@@ -1,3 +1,4 @@
+import io
 import os
 import pty
 import subprocess
@@ -69,13 +70,46 @@ def test_plain_choose(monkeypatch, capsys):
     assert "от 1 до 2" in capsys.readouterr().out
 
 
-def test_eof_is_interrupt(monkeypatch):
+def test_eof_is_reported_to_caller(monkeypatch):
     def eof(prompt=""):
         raise EOFError
 
     monkeypatch.setattr("builtins.input", eof)
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(EOFError):
         term.ask("x")
+
+
+def test_plain_secret_warns_and_preserves_whitespace(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdin", io.StringIO(" pw \n"))
+    assert term.ask("Пароль", secret=True) == " pw "
+    out = capsys.readouterr().out
+    assert "пароль может быть виден" in out
+    assert "Ctrl+C" in out
+    assert " pw " not in out
+
+
+@pytest.mark.parametrize("dumb", [False, True])
+def test_terminal_capability_fallback(monkeypatch, dumb):
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    monkeypatch.setenv("TERM", "dumb" if dumb else "xterm")
+
+    def no_fd():
+        raise OSError("not a terminal")
+
+    monkeypatch.setattr(sys.stdin, "fileno", no_fd)
+    assert not term.interactive()
+
+
+@pytest.mark.parametrize("tty", [False, True])
+def test_area_does_not_move_cursor_without_terminal_support(monkeypatch, capsys, tty):
+    monkeypatch.setenv("TERM", "dumb")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: tty)
+    area = term.Area()
+    area.draw(["QR 1"])
+    area.draw(["QR 2"])
+    area.clear()
+    assert capsys.readouterr().out == "QR 1\nQR 2\n"
 
 
 def test_no_color(monkeypatch):
@@ -106,7 +140,31 @@ SCRIPT = textwrap.dedent(
 )
 
 
-def run_in_pty(*steps: tuple[bytes, bytes]) -> str:
+@pytest.mark.parametrize("answer", ["2", "9\n2", ""])
+def test_real_pipe_menu_and_async_field(answer):
+    proc = subprocess.run(
+        [sys.executable, "-c", SCRIPT],
+        input=f"{answer}\n1a\n12\n",
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert proc.returncode == 0, proc.stderr
+    selected = 0 if answer == "" else 1
+    assert f"RESULT {selected} 12" in proc.stdout
+    assert "По QR-коду" in proc.stdout and "По номеру" in proc.stdout
+    assert "Введи номер и нажми Enter" in proc.stdout
+    assert "только цифры" in proc.stdout
+    assert "\x1b" not in proc.stdout
+
+
+def test_real_pipe_eof_exits_without_hanging():
+    proc = subprocess.run([sys.executable, "-c", SCRIPT], input="", capture_output=True, text=True, timeout=10)
+    assert proc.returncode != 0
+    assert "EOFError" in proc.stderr
+
+
+def run_in_pty(*steps: tuple[bytes, bytes], terminal: str = "xterm-256color") -> str:
     # steps: (дождаться этого в выводе, потом нажать это).
     master, slave = pty.openpty()
     proc = subprocess.Popen(
@@ -114,7 +172,7 @@ def run_in_pty(*steps: tuple[bytes, bytes]) -> str:
         stdin=slave,
         stdout=slave,
         stderr=slave,
-        env={**os.environ, "TERM": "xterm-256color"},
+        env={**os.environ, "TERM": terminal},
         cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     )
     os.close(slave)
@@ -149,6 +207,30 @@ def test_real_terminal_arrows_and_inline_error():
     assert "RESULT 1 12" in out
     assert "только цифры" in out
     assert "\x1b[?25h" in out  # курсор вернули
+
+
+@pytest.mark.skipif(os.name != "posix", reason="pty только на posix")
+@pytest.mark.parametrize("keys", [b"2\r", b"2\x1b[A\r"])
+def test_real_terminal_numbers_can_be_confirmed_or_changed(keys):
+    out = run_in_pty(
+        (b"Enter)", keys),
+        ("Код".encode(), b"42\r"),
+    )
+    selected = 0 if b"[A" in keys else 1
+    assert f"RESULT {selected} 42" in out
+    assert "1. По QR-коду" in out and "2. По номеру" in out
+    assert "\x1b[?25h" in out
+
+
+@pytest.mark.skipif(os.name != "posix", reason="pty только на posix")
+def test_real_dumb_terminal_uses_numbered_menu():
+    out = run_in_pty(
+        ("Номер".encode(), b"2\n"),
+        ("Код:".encode(), b"42\n"),
+        terminal="dumb",
+    )
+    assert "RESULT 1 42" in out
+    assert "\x1b" not in out
 
 
 @pytest.mark.skipif(os.name != "posix", reason="pty только на posix")
