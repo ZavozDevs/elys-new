@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import itertools
 import logging
 from contextlib import AsyncExitStack
 from importlib import import_module
@@ -12,6 +11,8 @@ from pyrogram import idle
 from elys import __version__, builtin
 from elys.core import clients
 from elys.core.clients import ElysClient, Login
+from elys.core.loader import Loader
+from elys.core.registry import Registry
 from elys.core.router import GROUP as ROUTER_GROUP
 from elys.core.router import Router
 from elys.sdk.module import Module, find
@@ -31,7 +32,12 @@ class App:
         self.settings = settings
         self.login = login
         self.modules: dict[str, Module] = {}
-        self._groups = itertools.count()  # у каждого модуля своя группа диспетчера
+        self.registry = Registry()
+        self.premium = False
+        self.banners_enabled = True
+        self.language = "ru"
+        self.bot = None
+        self.loader = None
 
     async def run(self) -> None:
         settings = self.settings
@@ -42,18 +48,28 @@ class App:
             stack.push_async_callback(self.kv.close)
 
             self.router = Router(self.kv.ns("core").get("prefixes", settings.prefixes))
+            core = self.kv.ns("core")
+            self.router.set_aliases(core.get("aliases", {}))
+            self.language = core.get("language", "ru")
+            self.banners_enabled = core.get("banners", True)
+            self.loader = Loader(self, find)
             self.client = clients.user(settings, version=__version__, login=self.login)
             # без сессии сначала мастер входа — не мешаем ему.
             if (settings.data_dir / f"{clients.SESSION}.session").exists():
                 log.info("подключаюсь к Telegram…")
             await self.client.start()
             stack.push_async_callback(self.client.stop)
+            self.premium = bool(self.client.me.is_premium)
             for handler in self.router.handlers():
                 self.client.add_handler(handler, ROUTER_GROUP)
 
             stack.push_async_callback(self.unload_all)
             for name in builtin.NAMES:
                 await self.load(find(vars(import_module(f"elys.builtin.{name}")), name))
+
+            for module in tuple(self.modules.values()):
+                await module.ready()
+            await self.loader.load_all()
 
             # как пользоваться, при первом запуске объясняет builtin welcome
             log.info("модули: %s", ", ".join(self.modules))
@@ -68,17 +84,32 @@ class App:
     async def load(self, module: Module) -> None:
         if module.name in self.modules:
             raise ValueError(f"модуль {module.name} уже загружен")
-        await module.attach(self, group=next(self._groups))
+        resources = self.registry.add(module.name, module.commands)
+        try:
+            await module.attach(self, group=resources.group, resources=resources)
+        except BaseException:
+            self.registry.remove(module.name)
+            raise
         self.modules[module.name] = module
         self._rebuild_gate()
+
+    async def unload(self, name: str) -> None:
+        module = self.modules.pop(name)
+        try:
+            await module.detach()
+        finally:
+            self.registry.remove(name)
+            self._rebuild_gate()
 
     async def unload_all(self) -> None:
         try:
             async with AsyncExitStack() as stack:
-                for module in self.modules.values():
-                    stack.push_async_callback(module.detach)
+                for name in tuple(self.modules):
+                    stack.push_async_callback(self.unload, name)
         finally:
             self.modules.clear()
+            if self.loader is not None:
+                await self.loader.close()
             self._rebuild_gate()
 
     def _rebuild_gate(self) -> None:

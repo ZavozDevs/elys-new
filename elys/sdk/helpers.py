@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from pyrogram.types import LinkPreviewOptions, Message
+from pyrogram.types import Message
 
-_NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
+from elys.ui.banner import preview
+
+from .context import current
 
 
 class UserError(Exception):
@@ -14,9 +16,9 @@ class UserError(Exception):
     pass
 
 
-async def respond(message: Message, text: str, **kwargs: Any) -> Message:
+async def respond(message: Message, text: str, *, banner: str | None = None, **kwargs: Any) -> Message:
     # своё сообщение — редактируем, чужое (sudo) — отвечаем.
-    kwargs.setdefault("link_preview_options", _NO_PREVIEW)
+    kwargs.setdefault("link_preview_options", preview(banner, getattr(current.get(), "banners_enabled", True)))
     if message.outgoing:
         return await message.edit_text(text, **kwargs)
     return await message.reply(text, **kwargs)

@@ -7,6 +7,8 @@ dependencies = [
     "wzgram[fast]==3.1.3",
     "aiosqlite>=0.20",
     "qrcode>=7.4",
+    "PyYAML>=6",
+    "packaging>=24",
 ]
 
 [project.optional-dependencies]
@@ -53,3 +55,10 @@ type = "forbidden"
 source_modules = ["elys.builtin"]
 forbidden_modules = ["elys.core", "elys.storage", "elys.sdk", "elys.app"]
 allow_indirect_imports = true  # через `elys` можно
+
+[[tool.importlinter.contracts]]
+name = "оформление не знает о приложении"
+type = "forbidden"
+source_modules = ["elys.ui", "elys.i18n"]
+forbidden_modules = ["elys.core", "elys.sdk", "elys.builtin", "elys.app"]
+allow_indirect_imports = true

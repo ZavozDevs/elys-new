@@ -1,0 +1,3 @@
+loaded: "{e:check} <b>{name} · загружен</b>\n<blockquote>Команды → <code>{p}help {name}</code></blockquote>"
+unloaded: "{e:check} <b>{name} · выключен</b>\n<blockquote>Настройки сохранены.\nВключить → <code>{p}lm {file}</code></blockquote>"
+working: "{e:clock} <i>Загружаю модуль…</i>"

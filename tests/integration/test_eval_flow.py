@@ -28,7 +28,7 @@ async def test_eval_through_router_and_html_parser(tmp_path, source):
     await module.attach(host, group=0)
     try:
         await host.router.dispatch(client, message)
-        await asyncio.gather(*module._tasks)
+        await asyncio.gather(*module._resources.tasks)
         assert len(replies) == 1
         text = replies[0]["message"]
         assert "✅" in text

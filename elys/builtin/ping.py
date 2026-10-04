@@ -3,9 +3,9 @@ from time import perf_counter
 from pyrogram import Client
 from pyrogram.types import Message
 
-from elys import Module, respond
+from elys import Config, Module, respond
 
-module = Module("Ping")
+module = Module("Ping", config=Config(banner=Config.url(doc="Картинка над ответом; пусто — без картинки")))
 
 
 @module.command("ping")
@@ -14,4 +14,5 @@ async def ping(client: Client, message: Message) -> None:
     start = perf_counter()
     reply = await respond(message, "🏓")
     ms = (perf_counter() - start) * 1000
-    await respond(reply, f"🏓 <b>Понг</b> <code>{ms:.0f} мс</code>")
+    await respond(reply, f"🏓 <b>Понг</b>\n<blockquote>Ответ Telegram · <code>{ms:.0f} мс</code></blockquote>",
+                  banner=module.config["banner"])

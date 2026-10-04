@@ -30,13 +30,14 @@ class Command:
     callback: Callable[[Client, Message], Awaitable[Any]]
     owner: Owner
     aliases: tuple[str, ...] = ()
+    roles: frozenset[str] = frozenset()  # до security доступ всё равно только у владельца
 
     @property
     def names(self) -> tuple[str, ...]:
         return self.name, *self.aliases
 
 
-class CommandConflict(Exception):
+class CommandConflict(ValueError):
     def __init__(self, name: str, owner: str) -> None:
         super().__init__(f"команда {name!r} уже занята модулем {owner}")
         self.name, self.owner = name, owner
@@ -52,6 +53,7 @@ def owner_only(message: Message, command: Command) -> bool:
 class Router:
     def __init__(self, prefixes: Iterable[str], allow: Allow = owner_only) -> None:
         self._commands: dict[str, Command] = {}
+        self.aliases: dict[str, str] = {}
         self.allow = allow
         self.prefixes = prefixes
 
@@ -75,6 +77,8 @@ class Router:
             for name in command.names:
                 if not name or name != name.lower() or any(c.isspace() for c in name):
                     raise ValueError(f"плохое имя команды: {name!r}")
+                if name in self.aliases:
+                    raise ValueError(f"имя {name!r} занято пользовательским сокращением; удали его в prefs")
                 other = pending.get(name) or self._commands.get(name)
                 if other is not None and other is not command:
                     raise CommandConflict(name, other.owner.name)
@@ -84,8 +88,19 @@ class Router:
     def remove(self, owner: Owner) -> None:
         self._commands = {n: c for n, c in self._commands.items() if c.owner is not owner}
 
+    def set_aliases(self, aliases: dict[str, str]) -> None:
+        for name, target in aliases.items():
+            if not name or name != name.lower() or any(c.isspace() for c in name):
+                raise ValueError("имя сокращения должно быть без пробелов, строчными буквами")
+            if name in self._commands:
+                raise CommandConflict(name, self._commands[name].owner.name)
+            if target in aliases:
+                raise ValueError("сокращение должно вести на команду, а не на другое сокращение")
+        self.aliases = dict(aliases)
+
     def get(self, name: str) -> Command | None:
-        return self._commands.get(name.lower())
+        name = name.lower()
+        return self._commands.get(self.aliases.get(name, name))
 
     def handlers(self) -> tuple[MessageHandler, EditedMessageHandler]:
         return MessageHandler(self.dispatch), EditedMessageHandler(self.dispatch)
@@ -102,7 +117,7 @@ class Router:
         if not body or body[0].isspace():
             return
         name, *rest = body.split(None, 1)
-        command = self._commands.get(name.lower())
+        command = self.get(name)
         if command is None or not self.allow(message, command):
             return
         message.command = [command.name, *parse_args(rest[0] if rest else "")]

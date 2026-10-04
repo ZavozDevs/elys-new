@@ -1,0 +1,499 @@
+# реестр премиум-эмодзи (перенесён из Elys как есть)
+# Format:
+#   alias:
+#     id: "TELEGRAM_CUSTOM_EMOJI_ID"
+#     fallback: "UNICODE_FALLBACK"
+#     aliases: ["alternative_name1", "alternative_name2"]
+
+system:
+  stop:
+    id: "5301008993622206313"
+    fallback: "\U0001F6AB"
+  cross:
+    id: "5298530191902026420"
+    fallback: "❌"
+  check:
+    id: "5305770806683413493"
+    fallback: "✅"
+  check_circle:
+    id: '5307754506048547129'
+    fallback: ✅
+  warn:
+    id: "5298736264432889807"
+    fallback: "⚠️"
+  exclamation:
+    id: "5775887550262546277"
+    fallback: "❗"
+  double_exclamation:
+    id: "5440660757194744323"
+    fallback: "‼️"
+  question:
+    id: "5382187118216879236"
+    fallback: "❓"
+  grey_question:
+    id: "6019130940012370273"
+    fallback: "❔"
+  info:
+    id: "5879813604068298387"
+    fallback: "ℹ️"
+  info_topic:
+    id: "5258503720928288433"
+    fallback: "ℹ️"
+  bullet:
+    id: "5253713110111365241"
+    fallback: "▫️"
+  white_circle:
+    id: "5228879218363872764"
+    fallback: "⚪"
+  blue_circle:
+    id: "5784891605601225888"
+    fallback: "\U0001F535"
+  gear:
+    id: "5316866957771843983"
+    fallback: "⚙️"
+  sync:
+    id: "5774134533590880843"
+    fallback: "\U0001F504"
+  repeat:
+    id: "5253464392850221514"
+    fallback: "\U0001F501"
+  clock:
+    id: "5345778951031658558"
+    fallback: "\U0001F556"
+  flash:
+    id: "5256099067523510898"
+    fallback: "⚡"
+  fire:
+    id: "5253877736207821121"
+    fallback: "\U0001F525"
+  recycle:
+    id: "5318933532825888187"
+    fallback: "♻️"
+
+  warn_security:
+    id: '5447644880824181073'
+    fallback: ⚠️
+  warn_verify:
+    id: '5188463524568926712'
+    fallback: ⚠️
+  exclamation_branch:
+    id: '5253864872780769235'
+    fallback: ❗️
+  stop_info:
+    id: '5472267631979405211'
+    fallback: 🚫
+  question_approve:
+    id: '5467666648263564704'
+    fallback: ❓
+  wait_terminal:
+    id: '5213452215527677338'
+    fallback: ⏳
+  clock_fw:
+    id: '5877458226823302157'
+    fallback: 🕒
+  loading_clock:
+    id: '5325792861885570739'
+    fallback: 🕔
+  bullet_security:
+    id: '4974264756668990388'
+    fallback: ▫️
+  bullet_dot:
+    id: '4974307891025543730'
+    fallback: ▫️
+  bullet_settings:
+    id: '4974259868996207180'
+    fallback: ▪️
+  bullet_square:
+    id: '5238035813761069618'
+    fallback: ◼️
+  bullet_circle:
+    id: '5238160913273502720'
+    fallback: ⚫
+  bullet_small:
+    id: '5238094680582823847'
+    fallback: ▪️
+  bullet_white:
+    id: '5197195523794157505'
+    fallback: ▫️
+  flash_ping:
+    id: '5920515922505765329'
+    fallback: ⚡️
+  clock_uptime:
+    id: '5900104897885376843'
+    fallback: 🕓
+  lock:
+    id: '5298827674221851128'
+    fallback: 🔒
+security:
+  perms:
+    id: "5870450390679425417"
+    fallback: "\U0001F5D2️"
+  lock_protect:
+    id: '6003424016977628379'
+    fallback: 🔒
+  shield_branch:
+    id: '5253780051471642059'
+    fallback: 🛡️
+users:
+  owner:
+    id: "5386399931378440814"
+    fallback: "\U0001F60E"
+  user:
+    id: "5883964170268840032"
+    fallback: "\U0001F464"
+  users:
+    id: "5870772616305839506"
+    fallback: "\U0001F465"
+  bot:
+    id: "5372981976804366741"
+    fallback: "\U0001F916"
+  bot_info:
+    id: '5931415565955503486'
+    fallback: 🤖
+  bot_info_alt:
+    id: '5819078828017849357'
+    fallback: 🤖
+  user_info:
+    id: '5879770735999717115'
+    fallback: 👤
+  owner_dev:
+    id: '5474667187258006816'
+    fallback: 😎
+  owner_designer:
+    id: '5472238129849048175'
+    fallback: 😎
+branding:
+  star:
+    id: "5246701816518843050"
+    fallback: "⭐"
+  glowing_star:
+    id: "5237990626410142523"
+    fallback: "\U0001F31F"
+  magic:
+    id: "5301194987180960703"
+    fallback: "\U0001FA84"
+  stealth:
+    id: "5870903672937911120"
+    fallback: "\U0001F576️"
+  party:
+    id: "5436040291507247633"
+    fallback: "\U0001F389"
+  diamond:
+    id: "5471952986970267163"
+    fallback: "\U0001F48E"
+  money:
+    id: "5404553572727660202"
+    fallback: "\U0001F4B0"
+  heart_hands:
+    id: "5287454910059654880"
+    fallback: "\U0001FAF6"
+
+  star_loader:
+    id: '5134452506935427991'
+    fallback: 🌟
+  star_repo:
+    id: '5429092129638980960'
+    fallback: 🌟
+  star_beta:
+    id: '5465188915990255885'
+    fallback: 🌟
+  star_choose:
+    id: '5363805650327450240'
+    fallback: 🌟
+  star_test:
+    id: '5350594756126721186'
+    fallback: 🌟
+  star_quickstart:
+    id: '5463379725441341739'
+    fallback: 🌟
+  star_update:
+    id: '5465496001856950230'
+    fallback: 🌟
+  star_subscribe:
+    id: '5435957248314579621'
+    fallback: ⭐️
+  dizzy_sparkle:
+    id: '5469741319330996757'
+    fallback: 💫
+  party_inline:
+    id: '6318792204118656433'
+    fallback: 🎉
+  rocket_restart:
+    id: '5875145601682771643'
+    fallback: 🚀
+  logo_star_1:
+    id: '5256047373297164926'
+    fallback: 🙂
+  logo_star_1_alt:
+    id: '5255791178497959401'
+    fallback: 🙂
+  logo_star_2:
+    id: '5253522460808094600'
+    fallback: 🙂
+  logo_star_3:
+    id: '5255953012865672959'
+    fallback: 🙂
+  logo_star_4:
+    id: '5256173769889718692'
+    fallback: 🙂
+  logo_star_4_alt:
+    id: '5255827251928278078'
+    fallback: 🙂
+  elys_logo_1:
+    id: '5255900081688715573'
+    fallback: 🙂
+  elys_logo_2:
+    id: '5256000613988212865'
+    fallback: 🙂
+  elys_logo_3:
+    id: '5253770551004016052'
+    fallback: 🙂
+  elys_logo_4:
+    id: '5256105157787168849'
+    fallback: 🙂
+ui:
+  folder:
+    id: "5256113064821926998"
+    fallback: "\U0001F4C1"
+  code:
+    id: "5316896004635666987"
+    fallback: "\U0001F4BB"
+  globe:
+    id: "6037284117505116849"
+    fallback: "\U0001F310"
+  chat:
+    id: "6037254263187443802"
+    fallback: "\U0001F4AC"
+  book:
+    id: "5208634061085492935"
+    fallback: "\U0001F4D6"
+  memo:
+    id: "5424772191403143504"
+    fallback: "\U0001F4DD"
+  newspaper:
+    id: "5434144690511290129"
+    fallback: "\U0001F4F0"
+  keyboard:
+    id: "5472111548572900003"
+    fallback: "⌨️"
+  hint:
+    id: "5319228932086605642"
+    fallback: "\U0001F4A1"
+  device:
+    id: "5431736674147114227"
+    fallback: "\U0001F4F1"
+  new:
+    id: "5361979468887893611"
+    fallback: "\U0001F195"
+  loading:
+    id: "5346022209389372742"
+    fallback: "\U0001F914"
+  wave_loading:
+    id: "5345988476716226868"
+    fallback: "\U0001F914"
+  dizzy:
+    id: "5134202243486057363"
+    fallback: "\U0001F4AB"
+  cold_face:
+    id: "5452023368054216810"
+    fallback: "\U0001F976"
+  wave:
+    id: "5424885441100782420"
+    fallback: "\U0001F44B"
+  loudspeaker:
+    id: "6019094432790354513"
+    fallback: "\U0001F4E2"
+  silent:
+    id: "6010394680179562842"
+    fallback: "\U0001F636"
+  camera:
+    id: "5778335621491723621"
+    fallback: "\U0001F4F7"
+  chart:
+    id: "5931472654660800739"
+    fallback: "\U0001F4CA"
+  link:
+    id: "4916086774649848789"
+    fallback: "\U0001F517"
+  roller_coaster:
+    id: "5440551785284510215"
+    fallback: "\U0001F3A2"
+  statue:
+    id: "5454219968948229067"
+    fallback: "\U0001F5FD"
+  melting_face:
+    id: "5325787248363314644"
+    fallback: "\U0001FAE0"
+  tipping_hand:
+    id: "4940480187436369099"
+    fallback: "\U0001F481‍♀️"
+  dumpling:
+    id: "5382337996123020810"
+    fallback: "\U0001F95F"
+  pirate_flag:
+    id: "5386372293263892965"
+    fallback: "\U0001F3F4‍☠️"
+
+  folder_elys:
+    id: '5289608677244811430'
+    fallback: 📁
+  folder_config:
+    id: '5433653135799228968'
+    fallback: 📁
+  folders_repo:
+    id: '5873153278023307367'
+    fallback: 🗂️
+  package_loader:
+    id: '5341492148468465410'
+    fallback: 📦
+    aliases: ["module"]
+  chat_help:
+    id: '6019151079114021083'
+    fallback: 💬
+  book_inline:
+    id: '5226512880362332956'
+    fallback: 📖
+  tip_quickstart:
+    id: '5456178297941561360'
+    fallback: 💡
+  sync_info:
+    id: '5843799474362652262'
+    fallback: 🔄
+  shield_info:
+    id: '5931409969613116639'
+    fallback: 🛡
+  shield_info_alt:
+    id: '5926783847453692661'
+    fallback: 🛡
+  brush:
+    id: '5255904299346601067'
+    fallback: 🖌
+  bezier:
+    id: '5316670789435564600'
+    fallback: 📐
+numbers:
+  num_1:
+    id: "5456197350416486261"
+    fallback: "1️⃣"
+  num_2:
+    id: "5456261689026581678"
+    fallback: "2️⃣"
+  num_3:
+    id: "5458366235886522404"
+    fallback: "3️⃣"
+  num_4:
+    id: "5456207331920483861"
+    fallback: "4️⃣"
+  num_5:
+    id: "5456185418997340146"
+    fallback: "5️⃣"
+
+gestures:
+  ok_hand:
+    id: "5458450833857322148"
+    fallback: "\U0001F44C"
+  hand_up:
+    id: "5469718869536940860"
+    fallback: "\U0001F446"
+  shrug:
+    id: "5427052514094619126"
+    fallback: "\U0001F937‍♀️"
+
+flags:
+  flag_gb:
+    id: "6323589145717376403"
+    fallback: "\U0001F1EC\U0001F1E7"
+  flag_uz:
+    id: "6323430017179059570"
+    fallback: "\U0001F1FA\U0001F1FF"
+  flag_ru:
+    id: "6323139226418284334"
+    fallback: "\U0001F1F7\U0001F1FA"
+  flag_ua:
+    id: "6323289850921354919"
+    fallback: "\U0001F1FA\U0001F1E6"
+  flag_it:
+    id: "6323471399188957082"
+    fallback: "\U0001F1EE\U0001F1F9"
+  flag_es:
+    id: "6323315062379382237"
+    fallback: "\U0001F1EA\U0001F1F8"
+  flag_fr:
+    id: "6323570711717742330"
+    fallback: "\U0001F1EB\U0001F1F7"
+  flag_de:
+    id: "6320817337033295141"
+    fallback: "\U0001F1E9\U0001F1EA"
+  flag_tr:
+    id: "6321003171678259486"
+    fallback: "\U0001F1F9\U0001F1F7"
+  flag_jp:
+    id: "6323356796576597627"
+    fallback: "\U0001F1EF\U0001F1F5"
+  flag_kz:
+    id: "6323135275048371614"
+    fallback: "\U0001F1F0\U0001F1FF"
+platforms:
+  termux_logo:
+    id: '5305453752197623484'
+    fallback: 🪐
+  platform_termux_plate:
+    id: '5307971715429605972'
+    fallback: 🪐
+  windows_logo:
+    id: '5276340544014953048'
+    fallback: 💻
+  platform_wsl_plate:
+    id: '5276463745151842799'
+    fallback: 💻
+  rnhost_logo:
+    id: '5274190998782650094'
+    fallback: ❤️🔥
+  platform_rnhost_plate:
+    id: '5276324313333539897'
+    fallback: ❤️🔥
+  docker_logo:
+    id: '5276299355278583541'
+    fallback: 🐳
+  platform_docker_plate:
+    id: '5276455773692535302'
+    fallback: 🐳
+  platform_docker_pill:
+    id: '5274246476875214800'
+    fallback: 🐳
+  macos_logo:
+    id: '5273783780048414868'
+    fallback: 🍏
+  platform_apple_plate:
+    id: '5276241841371525820'
+    fallback: 🍏
+  platform_apple_pill:
+    id: '5276282411632598712'
+    fallback: 🍏
+  userland_logo:
+    id: '5276481371697621785'
+    fallback: 🐧
+  platform_userland_plate:
+    id: '5274095620443907979'
+    fallback: 🐧
+  platform_userland_pill:
+    id: '5276279937731437831'
+    fallback: 🐧
+  raspberry_logo:
+    id: '5274258133416453885'
+    fallback: 🍇
+  platform_raspberry_plate:
+    id: '5274144703330168003'
+    fallback: 🍇
+  platform_raspberry_pill:
+    id: '5276322659771129956'
+    fallback: 🍇
+  orangepi_logo:
+    id: '5273966642576009652'
+    fallback: 🍊
+  platform_orange_plate:
+    id: '5276273074373701647'
+    fallback: 🍊
+  platform_orange_pill:
+    id: '5276173212089100836'
+    fallback: 🍊
