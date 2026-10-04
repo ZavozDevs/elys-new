@@ -12,7 +12,7 @@ from pyrogram.types import Message
 
 from elys import Module, UserError, get_reply, raw_args, respond
 
-module = Module("Eval", author="Elys")
+module = Module("Eval")
 
 FILENAME = "<eval>"
 LIMIT = 4000  # лимит текста telegram 4096, с запасом на заголовки
@@ -23,8 +23,7 @@ async def evaluate(client: Client, message: Message) -> None:
     """<код> — выполнить python, await можно на верхнем уровне"""
     source = raw_args(message)
     if not source:
-        typed = (message.text or message.caption).split()[0]
-        raise UserError(f"Напиши код после команды, например: <code>{typed} 2 + 2</code>")
+        raise UserError("Напиши код после команды, например: 2 + 2")
 
     out = io.StringIO()
     env = {
@@ -51,11 +50,10 @@ async def evaluate(client: Client, message: Message) -> None:
     else:
         body, ok = out.getvalue() + ("" if result is None else _show(result)), True
 
-    code = source if len(source) <= 1000 else source[:1000] + "…"
-    room = LIMIT - len(code)
-    body = body.strip() or "None"
-    if len(body) > room:
-        body = body[: room - 1] + "…"
+    # Лимит — по тексту после разбора HTML, не по длине &lt; и других entities.
+    code = _truncate(source, 1000)
+    room = LIMIT - len(code.encode("utf-16-le")) // 2
+    body = _truncate(body.strip() or "None", room)
     await respond(
         message,
         f'<pre language="python">{html.escape(code)}</pre>\n{"✅" if ok else "🚫"} <pre>{html.escape(body)}</pre>',
@@ -78,6 +76,13 @@ async def run(source: str, env: dict[str, Any]) -> Any:
     else:
         exec(code, env)
     return env.get("__result__")
+
+
+def _truncate(text: str, units: int) -> str:
+    encoded = text.encode("utf-16-le")
+    if len(encoded) <= units * 2:
+        return text
+    return encoded[: (units - 1) * 2].decode("utf-16-le", errors="ignore") + "…"
 
 
 def _show(value: Any) -> str:

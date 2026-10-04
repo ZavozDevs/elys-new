@@ -30,7 +30,6 @@ class Command:
     callback: Callable[[Client, Message], Awaitable[Any]]
     owner: Owner
     aliases: tuple[str, ...] = ()
-    roles: frozenset[str] = frozenset()
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -62,23 +61,25 @@ class Router:
 
     @prefixes.setter
     def prefixes(self, value: Iterable[str]) -> None:
-        prefixes = tuple(sorted(set(value), key=len, reverse=True))  # длинный префикс раньше
-        if not prefixes or not all(p and not p[0].isspace() for p in prefixes):
+        prefixes = tuple(value)
+        if not prefixes or not all(isinstance(p, str) and p and not any(c.isspace() for c in p) for p in prefixes):
             raise ValueError(f"плохие префиксы: {prefixes!r}")
-        self._prefixes = prefixes
-        self._first = frozenset(p[0] for p in prefixes)
+        self._prefixes = tuple(dict.fromkeys(prefixes))  # порядок пользователя, первый — основной
+        self._matching_prefixes = tuple(sorted(self._prefixes, key=len, reverse=True))
+        self._first = frozenset(p[0] for p in self._prefixes)
 
-    def add(self, *commands: Command, force: bool = False) -> None:
-        # всё или ничего: конфликт не оставляет половину команд
-        if not force:
-            for command in commands:
-                for name in command.names:
-                    other = self._commands.get(name)
-                    if other is not None and other.owner is not command.owner:
-                        raise CommandConflict(name, other.owner.name)
+    def add(self, *commands: Command) -> None:
+        # Проверяем и текущие команды, и всю пачку до изменения реестра.
+        pending: dict[str, Command] = {}
         for command in commands:
             for name in command.names:
-                self._commands[name] = command
+                if not name or name != name.lower() or any(c.isspace() for c in name):
+                    raise ValueError(f"плохое имя команды: {name!r}")
+                other = pending.get(name) or self._commands.get(name)
+                if other is not None and other is not command:
+                    raise CommandConflict(name, other.owner.name)
+                pending[name] = command
+        self._commands.update(pending)
 
     def remove(self, owner: Owner) -> None:
         self._commands = {n: c for n, c in self._commands.items() if c.owner is not owner}
@@ -94,7 +95,7 @@ class Router:
         text = message.text or message.caption
         if not text or text[0] not in self._first:
             return
-        prefix = next((p for p in self._prefixes if text.startswith(p)), None)
+        prefix = next((p for p in self._matching_prefixes if text.startswith(p)), None)
         if prefix is None:
             return
         body = text[len(prefix) :]

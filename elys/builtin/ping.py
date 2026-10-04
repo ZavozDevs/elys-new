@@ -5,7 +5,7 @@ from pyrogram.types import Message
 
 from elys import Module, respond
 
-module = Module("Ping", author="Elys")
+module = Module("Ping")
 
 
 @module.command("ping")

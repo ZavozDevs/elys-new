@@ -26,3 +26,25 @@ async def test_traceback_starts_at_user_code():
     assert 'File "<eval>", line 2' in text
     assert "1 / 0" in text
     assert "elys/builtin" not in text
+
+
+@pytest.mark.parametrize("text", ["😀" * 3000, "<>&" * 1500, "a😀b" * 1500])
+async def test_truncation_counts_parsed_text_not_html_markup(text):
+    import html
+
+    from pyrogram.parser.html import HTML
+
+    from elys.builtin.eval import _truncate
+
+    shortened = _truncate(text, 4000)
+    parsed = await HTML(None).parse(f"<pre>{html.escape(shortened)}</pre>")
+    assert parsed["message"] == shortened
+    assert len(parsed["message"].encode("utf-16-le")) // 2 <= 4000
+    assert shortened.endswith("…")
+    assert "\ufffd" not in shortened
+
+
+def test_html_escaping_does_not_reduce_available_space():
+    from elys.builtin.eval import _truncate
+
+    assert _truncate("<" * 3000, 4000) == "<" * 3000

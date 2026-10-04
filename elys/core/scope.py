@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from itertools import product
+from typing import ClassVar
 
 # тип чата
 PRIVATE, GROUP, CHANNEL = 0, 1, 2
@@ -14,31 +16,22 @@ def key(chat_type: int, *, out: bool = False, edited: bool = False) -> int:
     return edited << 3 | out << 2 | chat_type
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
 class Scope:
     """маска по категориям: внутри категории «или», между категориями «и», 0 — любые."""
 
-    __slots__ = ("chat_ids", "chat_types", "directions", "kinds")
+    kinds: int = 0
+    directions: int = 0
+    chat_types: int = 0
+    chat_ids: frozenset[int] | None = None
 
-    INCOMING: Scope
-    OUTGOING: Scope
-    PRIVATE: Scope
-    GROUP: Scope
-    CHANNEL: Scope
-    EDITED: Scope
-    ALL: Scope
-
-    def __init__(
-        self,
-        *,
-        kinds: int = 0,
-        directions: int = 0,
-        chat_types: int = 0,
-        chat_ids: frozenset[int] | None = None,
-    ) -> None:
-        self.kinds = kinds
-        self.directions = directions
-        self.chat_types = chat_types
-        self.chat_ids = chat_ids
+    INCOMING: ClassVar[Scope]
+    OUTGOING: ClassVar[Scope]
+    PRIVATE: ClassVar[Scope]
+    GROUP: ClassVar[Scope]
+    CHANNEL: ClassVar[Scope]
+    EDITED: ClassVar[Scope]
+    ALL: ClassVar[Scope]
 
     @staticmethod
     def chats(ids: Iterable[int]) -> Scope:
@@ -72,18 +65,6 @@ class Scope:
             key(t, out=bool(d), edited=bool(k))
             for k, d, t in product(_bits(self.kinds, 2), _bits(self.directions, 2), _bits(self.chat_types, 3))
         )
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, Scope) and self._fields() == other._fields()
-
-    def __hash__(self) -> int:
-        return hash(self._fields())
-
-    def __repr__(self) -> str:
-        return "Scope(kinds={}, directions={}, chat_types={}, chat_ids={})".format(*self._fields())
-
-    def _fields(self) -> tuple:
-        return self.kinds, self.directions, self.chat_types, self.chat_ids
 
 
 def _bits(mask: int, size: int) -> tuple[int, ...]:

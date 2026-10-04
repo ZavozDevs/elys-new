@@ -1,4 +1,13 @@
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from elys.core.scope import CHANNEL, GROUP, PRIVATE, Matcher, Scope, key
+
+
+def test_scope_is_immutable():
+    with pytest.raises(FrozenInstanceError):
+        Scope.PRIVATE.chat_types = 7
 
 
 def test_flags_or_within_category_and_across():

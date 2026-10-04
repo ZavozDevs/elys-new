@@ -2,7 +2,7 @@ from pyrogram import Client
 
 from elys import Module
 
-module = Module("Welcome", author="Elys")
+module = Module("Welcome")
 
 TEXT = """🌟 Elys работает!
 
@@ -20,5 +20,5 @@ async def greet(client: Client) -> None:
     # до появления форума (этап 3) — в терминал
     if module.db.get("shown"):
         return
-    module.log.info(TEXT.format(p=module.app.router.prefixes[-1]))
+    module.log.info(TEXT.format(p=module.app.router.prefixes[0]))
     module.db["shown"] = True

@@ -12,9 +12,8 @@ CHANNEL_ID = 100500
 CHANNEL = T.PeerChannel(channel_id=CHANNEL_ID)
 
 
-def gate(*scopes, trusted=(), listeners=()):
+def gate(*scopes, listeners=()):
     g = Gate(listeners)
-    g.trusted = frozenset(trusted)
     g.rebuild(s.default_kind(edited=False) for s in scopes)
     return g
 
@@ -29,10 +28,10 @@ def test_active_listener_opens_everything():
     assert gate(listeners=[object()])(f.new(f.message(CHAT, from_id=T.PeerUser(user_id=5))), {})
 
 
-def test_trusted_sender_in_private_comes_from_peer_id():
-    g = gate(trusted={5})
+def test_incoming_sender_does_not_bypass_scope():
+    g = gate(Scope.PRIVATE)
     assert g(f.new(f.message(T.PeerUser(user_id=5))), {})
-    assert g(f.new(f.message(CHAT, from_id=T.PeerUser(user_id=5))), {})
+    assert not g(f.new(f.message(CHAT, from_id=T.PeerUser(user_id=5))), {})
     assert not g(f.new(f.message(CHAT, from_id=T.PeerUser(user_id=6))), {})
 
 
@@ -66,9 +65,9 @@ def test_message_empty_dropped():
 
 
 def test_short_updates():
-    g = gate(Scope.GROUP, trusted={9})
+    g = gate(Scope.GROUP)
     assert g.short(f.short_private(5, out=True))
-    assert g.short(f.short_private(9))
+    assert not g.short(f.short_private(9))
     assert not g.short(f.short_private(5))
     assert g.short(f.short_chat(7, 5))
     assert gate(Scope.chats({-7})).short(f.short_chat(7, 5))

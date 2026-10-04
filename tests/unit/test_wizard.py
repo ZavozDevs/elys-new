@@ -1,4 +1,8 @@
+from unittest.mock import AsyncMock
+
 import pytest
+from pyrogram import enums, errors
+from pyrogram.types import User
 
 from elys import wizard
 from elys.settings import load
@@ -33,4 +37,35 @@ def test_ask_keys_reasks_until_valid(tmp_path, monkeypatch, capsys):
     file = tmp_path / "settings.toml"
     wizard.ask_keys(file)
     assert load({"ELYS_DATA_DIR": str(tmp_path)}).api_id == 777
-    assert capsys.readouterr().out.count("не похоже") == 2
+    out = capsys.readouterr().out
+    assert out.count("✗") == 2
+    assert "нужны только цифры" in out and "нужно 32 символа" in out
+
+
+@pytest.mark.parametrize("stage", ["send_phone_number_code", "sign_in", "check_password"])
+async def test_flood_wait_is_shown_before_sleep_and_request_retried(stage, monkeypatch):
+    from types import SimpleNamespace
+
+    user = User(id=1, first_name="Test")
+    sent = SimpleNamespace(type=enums.SentCodeType.APP, phone_code_hash="hash")
+    client = SimpleNamespace(
+        send_phone_number_code=AsyncMock(return_value=sent),
+        sign_in=AsyncMock(return_value=user),
+        check_password=AsyncMock(return_value=user),
+        get_password_hint=AsyncMock(return_value=None),
+    )
+    method = getattr(client, stage)
+    method.side_effect = [errors.FloodWait(3), sent if stage == "send_phone_number_code" else user]
+    shown = []
+    monkeypatch.setattr(wizard.term, "hint", shown.append)
+    monkeypatch.setattr(wizard.term, "aask", AsyncMock(side_effect=["+79991234567", "12345", "password"]))
+
+    async def sleep(seconds):
+        assert seconds == 3
+        assert "3 с" in shown[-1]  # не после ожидания
+
+    monkeypatch.setattr(wizard.asyncio, "sleep", sleep)
+    result = await (wizard._password(client) if stage == "check_password" else wizard._phone(client))
+    assert result is user
+    assert method.await_count == 2
+    assert method.await_args_list[0] == method.await_args_list[1]

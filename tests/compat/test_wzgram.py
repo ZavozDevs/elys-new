@@ -129,3 +129,65 @@ async def test_own_short_message_goes_through():
 async def test_run_without_session_does_not_prompt():
     with pytest.raises(NotLoggedIn):
         await make(ElysClient).authorize()
+
+
+@pytest.mark.parametrize("failure", ["cancel", "exit"])
+async def test_interrupted_start_disconnects(failure):
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    client = make(ElysClient)
+
+    async def connect():
+        client.is_connected = True
+        return False
+
+    async def authorize():
+        if failure == "cancel":
+            raise asyncio.CancelledError
+        raise SystemExit("login aborted")
+
+    client.connect = connect
+    client.authorize = authorize
+    client.disconnect = AsyncMock()
+    with pytest.raises(asyncio.CancelledError if failure == "cancel" else SystemExit):
+        await client.start()
+    client.disconnect.assert_awaited_once()
+
+
+async def test_repeated_start_does_not_disconnect_running_client():
+    from unittest.mock import AsyncMock
+
+    client = make(ElysClient)
+    client.is_connected = True
+    client.disconnect = AsyncMock()
+    with pytest.raises(ConnectionError):
+        await client.start()
+    client.disconnect.assert_not_awaited()
+    assert client.is_connected
+
+
+async def test_file_session_is_private_even_when_login_fails(tmp_path):
+    import os
+    from unittest.mock import AsyncMock
+
+    if os.name != "posix":
+        pytest.skip("POSIX permissions")
+    client = clients.user(Settings(api_id=1, api_hash="h", data_dir=tmp_path), version="t")
+
+    async def connect():
+        await client.storage.open()
+        client.is_connected = True
+        return False
+
+    async def disconnect():
+        await client.storage.close()
+        client.is_connected = False
+
+    client.connect = connect
+    client.disconnect = disconnect
+    client.authorize = AsyncMock(side_effect=NotLoggedIn)
+    with pytest.raises(NotLoggedIn):
+        await client.start()
+    assert tmp_path.stat().st_mode & 0o777 == 0o700
+    assert client.storage.database.stat().st_mode & 0o777 == 0o600

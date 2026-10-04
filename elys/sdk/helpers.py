@@ -10,7 +10,7 @@ _NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 
 class UserError(Exception):
-    """ошибка пользователя: ядро покажет текст без трейсбека и не запишет в лог."""
+    """ошибка пользователя: обычный текст (не HTML), без трейсбека и записи в лог."""
 
 
 async def respond(message: Message, text: str, **kwargs: Any) -> Message:

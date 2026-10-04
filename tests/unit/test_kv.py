@@ -58,14 +58,16 @@ async def test_delete_and_touch(path):
     await kv.close()
 
 
-async def test_bad_value_does_not_block_others(path, caplog):
+@pytest.mark.parametrize("value", [object(), {1, 2}, (1, 2), {1: "x"}, float("nan"), float("inf"), {"x": [object()]}])
+async def test_bad_value_does_not_block_others(path, value):
     kv = await KV.open(path, delay=60)
     db = kv.ns("m")
-    db["bad"] = object()
+    with pytest.raises((TypeError, ValueError)):
+        db["bad"] = value
+    assert "bad" not in db
     db["ok"] = 1
     kv = await reopen(kv, path)
     assert dict(kv.ns("m")) == {"ok": 1}
-    assert "m/bad" in caplog.text
     await kv.close()
 
 
@@ -78,4 +80,50 @@ async def test_mapping_api(path):
     assert db.get("missing", "d") == "d"
     assert list(db) == ["n"]
     assert len(db) == 1
+    await kv.close()
+
+
+async def test_invalid_overwrite_preserves_old_value_and_rejects_cycles(path):
+    kv = await KV.open(path, delay=60)
+    db = kv.ns("m")
+    db["x"] = 7
+    cycle = []
+    cycle.append(cycle)
+    with pytest.raises(ValueError, match="циклическое"):
+        db["x"] = cycle
+    assert db["x"] == 7
+    with pytest.raises(TypeError, match="ключ"):
+        db[1] = "bad"
+    await kv.close()
+
+
+async def test_flush_failure_retains_batch_for_retry(path):
+    kv = await KV.open(path, delay=60)
+    db = kv.ns("m")
+    db["x"] = []
+    db["ok"] = 1
+    db["x"].append(object())
+    with pytest.raises(TypeError):
+        db.touch("x")
+    with pytest.raises(TypeError):
+        await db.flush()
+    db["x"].clear()
+    db.touch("x")
+    await db.flush()
+    kv = await reopen(kv, path)
+    assert dict(kv.ns("m")) == {"x": [], "ok": 1}
+    await kv.close()
+
+
+async def test_close_joins_timer_and_rejects_writes(path):
+    kv = await KV.open(path, delay=60)
+    db = kv.ns("m")
+    db["x"] = 1
+    timer = kv._timer
+    await kv.close()
+    assert timer.done()
+    for operation in (lambda: db.set("x", 2), lambda: db.pop("x"), lambda: db.touch("x")):
+        with pytest.raises(RuntimeError, match="закрыт"):
+            operation()
+    assert db["x"] == 1
     await kv.close()

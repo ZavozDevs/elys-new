@@ -21,11 +21,10 @@ Parser = Callable[[Any, dict, dict], Awaitable[tuple[Any, type]]]
 class Gate:
     """синхронный предикат на frozenset/dict; state меняется целиком присваиванием."""
 
-    __slots__ = ("listeners", "matcher", "trusted")
+    __slots__ = ("listeners", "matcher")
 
     def __init__(self, listeners: Sized = ()) -> None:
         self.listeners = listeners  # client.listeners: пока кто-то ждёт ответа — пропускаем всё
-        self.trusted: frozenset[int] = frozenset()
         self.matcher = Matcher()
 
     def rebuild(self, scopes: Iterable[Scope]) -> None:
@@ -38,9 +37,6 @@ class Gate:
         peer = getattr(message, "peer_id", None)
         if peer is None:  # MessageEmpty
             return False
-        sender = message.from_id or peer  # в личке from_id часто пуст
-        if type(sender) is _PeerUser and sender.user_id in self.trusted:
-            return True
         chat_id, chat_type = _chat(peer, chats)
         return self.matcher(key(chat_type, edited=edited), chat_id)
 
@@ -48,11 +44,10 @@ class Gate:
         if update.out or self.listeners:
             return True
         if type(update) is _ShortMessage:
-            sender = chat_id = update.user_id
-            chat_type = PRIVATE
+            chat_id, chat_type = update.user_id, PRIVATE
         else:
-            sender, chat_id, chat_type = update.from_id, -update.chat_id, GROUP
-        return sender in self.trusted or self.matcher(key(chat_type), chat_id)
+            chat_id, chat_type = -update.chat_id, GROUP
+        return self.matcher(key(chat_type), chat_id)
 
 
 def _chat(peer: Any, chats: dict) -> tuple[int, int]:

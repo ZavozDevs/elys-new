@@ -9,9 +9,10 @@ import sys
 from collections.abc import Coroutine
 from typing import Any
 
-from pyrogram import errors
+from pyrogram import Client, errors
+from pyrogram.types import User
 
-from elys import __version__, log, settings, wizard
+from elys import __version__, log, settings
 from elys.core import clients
 from elys.core.clients import NotLoggedIn
 
@@ -26,32 +27,48 @@ def main(argv: list[str] | None = None) -> None:
     interactive = sys.stdin.isatty()
 
     try:
-        config = settings.load()
-    except settings.MissingKeys as e:
-        if not interactive:
-            sys.exit(f"Elys ещё не настроен — {FIRST_RUN}")
-        wizard.ask_keys(e.args[0])
-        config = settings.load()
+        try:
+            config = settings.load()
+        except settings.MissingKeys as e:
+            if not interactive:
+                sys.exit(f"Elys ещё не настроен — {FIRST_RUN}")
+            from elys import wizard
+
+            wizard.ask_keys(e.args[0])
+            config = settings.load()
+        log.setup(config.log_level, config.data_dir / "elys.log")
     except settings.SettingsError as e:
         sys.exit(f"Ошибка в настройках: {e}")
-    log.setup(config.log_level, config.data_dir / "elys.log")
+    except OSError as e:
+        sys.exit(f"Не удалось открыть данные Elys: {e}")
+    except KeyboardInterrupt:
+        sys.exit(1)
 
     if args.command == "logout":
         coro = logout(config)
     else:
         from elys.app import App
 
-        coro = App(config, login=wizard.login if interactive else None).run()
+        coro = App(config, login=_login if interactive else None).run()
 
     try:
         _run(coro)
     except NotLoggedIn:
         sys.exit(f"Нужно войти в аккаунт — {FIRST_RUN}")
     except (errors.ApiIdInvalid, errors.ApiIdPublishedFlood):
+        from elys import wizard
+
         wizard.forget_keys(config.file)
         sys.exit("Telegram не принял api_id и api_hash. Запусти Elys ещё раз — он спросит их заново.")
     except KeyboardInterrupt:
         pass
+
+
+async def _login(client: Client) -> User:
+    # мастер (и qrcode) грузится только когда сессии нет
+    from elys import wizard
+
+    return await wizard.login(client)
 
 
 async def logout(config: settings.Settings) -> None:
@@ -61,9 +78,13 @@ async def logout(config: settings.Settings) -> None:
     except NotLoggedIn:
         print("Ты и так не вошёл в аккаунт.")
         return
-    name = client.me.full_name
-    await client.log_out()  # завершает сессию в telegram и удаляет файл
-    print(f"Вышли из аккаунта {name}. При следующем запуске Elys спросит вход.")
+    try:
+        name = client.me.full_name
+        await client.log_out()  # завершает сессию в telegram и удаляет файл
+        print(f"Вышли из аккаунта {name}. При следующем запуске Elys спросит вход.")
+    finally:
+        if client.is_initialized:
+            await client.stop()
 
 
 def _run(coro: Coroutine[Any, Any, None]) -> None:

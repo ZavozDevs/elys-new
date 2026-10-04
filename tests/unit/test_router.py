@@ -83,8 +83,7 @@ def test_conflict_is_all_or_nothing():
     with pytest.raises(CommandConflict, match="Mod"):
         router.add(Command("new", None, other), Command("p", None, other))
     assert router.get("new") is None
-    router.add(Command("p", None, other), force=True)
-    assert router.get("p").owner is other
+    assert router.get("p").owner is not other
 
 
 def test_remove_owner():
@@ -102,3 +101,30 @@ def test_bad_prefixes(prefixes):
 
 def test_parse_args():
     assert parse_args(r"""a "b \"c\"" '' d""") == ["a", 'b "c"', "", "d"]
+
+
+@pytest.mark.parametrize("same_owner", [True, False])
+def test_conflict_inside_batch_is_atomic(same_owner):
+    router, owner, _ = setup()
+    other = owner if same_owner else Owner("Other")
+    with pytest.raises(CommandConflict):
+        router.add(Command("new", None, owner, aliases=("x",)), Command("x", None, other))
+    assert router.get("new") is None
+    assert router.get("x") is None
+    assert router.get("ping").owner is owner
+
+
+def test_same_owner_cannot_silently_replace_command():
+    router, owner, _ = setup()
+    original = router.get("ping")
+    with pytest.raises(CommandConflict):
+        router.add(Command("ping", None, owner))
+    assert router.get("ping") is original
+
+
+async def test_prefix_order_is_user_order_but_matching_is_longest_first():
+    router, owner, calls = setup(("!", ".", "!", ".."))
+    assert router.prefixes == ("!", ".", "..")
+    await run(router, owner, msg("..ping"))
+    await run(router, owner, msg("!ping"))
+    assert calls == [["ping"], ["ping"]]

@@ -12,6 +12,7 @@ from pyrogram.enums import ParseMode
 from pyrogram.types import User
 
 from elys.settings import Settings
+from elys.storage.files import private_directory, protect_existing
 
 from .gate import Gate, GateDispatcher
 
@@ -37,7 +38,23 @@ class ElysClient(Client):
             raise NotLoggedIn
         return await self.login(self)
 
+    async def start(self) -> ElysClient:
+        was_connected = self.is_connected
+        try:
+            await super().start()
+        except BaseException:
+            # wzgram не ловит CancelledError/SystemExit при авторизации.
+            # Ошибка повторного start не должна закрывать уже работающий клиент.
+            if not was_connected and self.is_connected:
+                await self.disconnect()
+            raise
+        finally:
+            if not self.in_memory and not self.session_string:
+                protect_existing(self.storage.database)
+        return self
+
     async def handle_updates(self, updates: Any) -> Any:
+        # Внутренний контракт wzgram 3.1.3 — при обновлении проверять tests/compat.
         # wzgram на каждое короткое сообщение делает GetDifference — чужие режем до него
         if isinstance(updates, _SHORT) and not self.gate.short(updates):
             self.last_update_time = datetime.now()
@@ -47,9 +64,15 @@ class ElysClient(Client):
         return await super().handle_updates(updates)
 
 
+SESSION = "elys"
+
+
 def user(settings: Settings, *, version: str, login: Login | None = None) -> ElysClient:
+    private_directory(settings.data_dir)
+    for path in settings.data_dir.glob(f"{SESSION}.session*"):
+        protect_existing(path)
     return ElysClient(
-        "elys",
+        SESSION,
         api_id=settings.api_id,
         api_hash=settings.api_hash,
         workdir=settings.data_dir,

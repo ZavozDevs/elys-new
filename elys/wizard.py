@@ -1,20 +1,27 @@
-"""первый запуск в терминале: ключи и вход простым языком, без знания кода."""
+"""первый запуск в терминале: ключи и вход простым языком, без знания кода.
+
+грузится только когда нужно что-то спросить (см. __main__): qrcode и qrlogin — ещё позже, при входе по QR.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
+from typing import Any, TypeVar
 
 from pyrogram import Client, enums, errors
-from pyrogram.qrlogin import QRLogin
 from pyrogram.types import User
-from pyrogram.utils import ainput
-from qrcode import QRCode
+
+from elys import log, term
+from elys.storage.files import write_private
+
+T = TypeVar("T")
 
 _HASH = re.compile(r"[0-9a-f]{32}")
 _KEY_LINE = re.compile(r"^\s*api_(id|hash)\s*=.*\n?", re.MULTILINE)
-_CLEAR = "\x1b[2J\x1b[H"
+_PHONE_JUNK = re.compile(r"[\s()\-]")
 
 _CODE_VIA = {
     enums.SentCodeType.APP: "в приложение Telegram (чат «Telegram»)",
@@ -30,23 +37,26 @@ _CODE_VIA = {
 
 
 def ask_keys(file: Path) -> None:
-    print(
-        "\nПривет! Это Elys — помощник, который живёт в твоём Telegram.\n"
-        "Для работы ему нужны два ключа от Telegram. Это бесплатно и займёт минуту:\n\n"
-        "  1. открой https://my.telegram.org и войди по номеру телефона\n"
-        "  2. нажми «API development tools»\n"
-        "  3. в App title и Short name впиши любые слова, нажми «Create application»\n"
-        "  4. скопируй сюда два значения: App api_id и App api_hash\n"
+    term.header("первый запуск")
+    term.say("  Для работы нужны два ключа от Telegram. Это бесплатно и займёт минуту:")
+    term.say()
+    term.steps(
+        [
+            f"открой {term.paint('https://my.telegram.org', 'link')} и войди по номеру телефона",
+            "нажми «API development tools»",
+            "в App title и Short name впиши любые слова → «Create application»",
+            "скопируй сюда App api_id и App api_hash",
+        ]
     )
-    api_id = _ask("App api_id (только цифры): ", parse_api_id, "нужны только цифры, например 1234567")
-    api_hash = _ask("App api_hash (32 символа): ", parse_api_hash, "должно быть 32 символа из цифр и букв a–f")
+    api_id = term.ask("App api_id", parse_api_id, "нужны только цифры, например 1234567")
+    api_hash = term.ask("App api_hash", parse_api_hash, "нужно 32 символа: цифры и буквы a–f")
     save_keys(file, api_id, api_hash)
-    print(f"\nГотово, ключи сохранены в {file}\n")
+    term.ok("Ключи сохранены")
 
 
 def parse_api_id(text: str) -> int | None:
     text = text.strip()
-    return int(text) if text.isdigit() and int(text) > 0 else None
+    return int(text) if text.isdecimal() and int(text) > 0 else None
 
 
 def parse_api_hash(text: str) -> str | None:
@@ -54,76 +64,110 @@ def parse_api_hash(text: str) -> str | None:
     return text if _HASH.fullmatch(text) else None
 
 
+def parse_phone(text: str) -> str | None:
+    digits = _PHONE_JUNK.sub("", text).removeprefix("+")
+    return f"+{digits}" if digits.isdecimal() and 7 <= len(digits) <= 15 else None
+
+
+def parse_code(text: str) -> str | None:
+    code = text.replace(" ", "").replace("-", "")
+    return code if code.isdecimal() else None
+
+
 def save_keys(file: Path, api_id: int, api_hash: str) -> None:
-    file.parent.mkdir(parents=True, exist_ok=True)
     rest = _KEY_LINE.sub("", file.read_text("utf-8")) if file.exists() else ""
-    file.write_text(f'api_id = {api_id}\napi_hash = "{api_hash}"\n{rest}', "utf-8")
+    write_private(file, f'api_id = {api_id}\napi_hash = "{api_hash}"\n{rest}')
 
 
 def forget_keys(file: Path) -> None:
     if file.exists():
-        file.write_text(_KEY_LINE.sub("", file.read_text("utf-8")), "utf-8")
-
-
-def _ask(prompt: str, parse, hint: str):
-    while (value := parse(input(prompt))) is None:
-        print(f"  не похоже на правильное значение: {hint}")
-    return value
+        write_private(file, _KEY_LINE.sub("", file.read_text("utf-8")))
 
 
 # вход
 
 
 async def login(client: Client) -> User:
-    """вызывается клиентом, когда сессии нет."""
-    print("\nТеперь войдём в твой аккаунт Telegram.")
-    print("  1 — по QR-коду: сканируешь с телефона (проще)")
-    print("  2 — по номеру телефона и коду")
-    while (choice := (await ainput("Выбери 1 или 2 [1]: ")).strip() or "1") not in {"1", "2"}:
-        pass
-    user = await (_qr(client) if choice == "1" else _phone(client))
-    print(f"\nВход выполнен: {user.full_name}\n")
+    """вызывается клиентом, когда сессии нет. пока идёт диалог, логи в терминал не пишутся (в файл — да)."""
+    with log.quiet():
+        term.header("вход в аккаунт")
+        choice = await term.achoose(
+            "Как войти?",
+            [
+                ("По QR-коду", "наводишь камеру телефона — проще"),
+                ("По номеру", "придёт код в Telegram или по SMS"),
+            ],
+        )
+        user = await (_qr(client) if choice == 0 else _phone(client))
+        term.ok(f"Вход выполнен: {user.full_name}")
+        term.say()
     return user
 
 
 async def _qr(client: Client) -> User:
+    from pyrogram.qrlogin import QRLogin
+    from qrcode import QRCode
+
     qr = QRLogin(client)
     await qr.recreate()
+    area = term.Area()
     while True:
-        code = QRCode()
+        code = QRCode(border=2)
         code.add_data(qr.url)
-        print(_CLEAR + "На телефоне: Telegram → Настройки → Устройства → Подключить устройство.\nНаведи камеру:\n")
-        code.print_ascii(tty=True)
-        print("\nКод обновляется сам примерно раз в 30 секунд.")
+        area.draw(
+            [
+                "",
+                "  На телефоне: Telegram → Настройки → Устройства → Подключить устройство",
+                "  и наведи камеру:",
+                "",
+                *term.qr_lines(code.get_matrix()),
+                "",
+                term.paint("  Код обновляется сам примерно раз в 30 секунд", "dim"),
+            ]
+        )
         try:
             if user := await qr.wait():
+                area.clear()
                 return user
         except (TimeoutError, errors.AuthTokenExpired):
             await qr.recreate()
         except errors.SessionPasswordNeeded:
+            area.clear()
             return await _password(client)
 
 
 async def _phone(client: Client) -> User:
+    phone, problem = "", ""
     while True:
-        phone = (await ainput("Номер телефона в международном формате, например +79991234567: ")).strip()
+        phone = await term.aask(
+            "Номер телефона",
+            parse_phone,
+            "нужен номер с кодом страны, например +79991234567",
+            placeholder="+79991234567",
+            initial=phone,
+            error=problem,
+            again=bool(problem),
+        )
         try:
-            sent = await client.send_phone_number_code(phone)
+            sent = await _retry_flood(client.send_phone_number_code, phone)
             break
         except (errors.PhoneNumberInvalid, errors.PhoneNumberUnoccupied):
-            print("  Telegram не знает такой номер. Проверь цифры и код страны.")
+            problem = "Telegram не знает такой номер — проверь цифры и код страны"
         except errors.PhoneNumberBanned:
             raise SystemExit("Этот номер заблокирован в Telegram.") from None
     if sent.type == enums.SentCodeType.SETUP_EMAIL_REQUIRED:
         raise SystemExit("Telegram просит привязать почту. Войди один раз в приложении Telegram или выбери QR-код.")
 
-    print(f"Код отправлен {_CODE_VIA.get(sent.type, 'в Telegram')}.")
+    term.ok(f"Код отправлен {_CODE_VIA.get(sent.type, 'в Telegram')}")
+    code, problem = "", ""
     while True:
-        code = (await ainput("Код: ")).strip().replace(" ", "")
+        code = await term.aask(
+            "Код", parse_code, "нужны только цифры из сообщения", initial=code, error=problem, again=bool(problem)
+        )
         try:
-            result = await client.sign_in(phone, sent.phone_code_hash, code)
+            result = await _retry_flood(client.sign_in, phone, sent.phone_code_hash, code)
         except errors.PhoneCodeInvalid:
-            print("  Код не подошёл, попробуй ещё раз.")
+            problem = "код не подошёл — проверь и введи ещё раз"
         except errors.PhoneCodeExpired:
             raise SystemExit("Код устарел. Запусти Elys ещё раз — придёт новый.") from None
         except errors.SessionPasswordNeeded:
@@ -135,15 +179,23 @@ async def _phone(client: Client) -> User:
 
 
 async def _password(client: Client) -> User:
-    print("\nНа аккаунте включён облачный пароль (двухэтапная проверка).")
-    if hint := await client.get_password_hint():
-        print(f"Подсказка: {hint}")
+    term.say()
+    term.say("  На аккаунте включён облачный пароль (двухэтапная проверка).")
+    if hint := await _retry_flood(client.get_password_hint):
+        term.hint(f"Подсказка: {hint}")
+    problem = ""
     while True:
-        password = await ainput("Облачный пароль (символы не видны при вводе): ", hide=True)
+        password = await term.aask("Облачный пароль", None, secret=True, error=problem, again=bool(problem))
         try:
-            return await client.check_password(password)
+            return await _retry_flood(client.check_password, password)
         except errors.PasswordHashInvalid:
-            print("  Пароль не подошёл. Забыл — сбрось его в приложении Telegram.")
+            problem = "пароль не подошёл. Забыл — сбрось его в приложении Telegram"
+
+
+async def _retry_flood(call: Callable[..., Awaitable[T]], *args: Any) -> T:
+    while True:
+        try:
+            return await call(*args)
         except errors.FloodWait as e:
-            print(f"  Слишком много попыток, подожди {e.value} с.")
+            term.hint(f"Telegram просит подождать {e.value} с — повторю запрос автоматически")
             await asyncio.sleep(e.value)
