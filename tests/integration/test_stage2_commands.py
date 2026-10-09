@@ -20,8 +20,11 @@ class Msg(SimpleNamespace):
     async def delete(self, **kwargs):
         self.deleted = True
 
-    async def edit_text(self, text, **kwargs):
-        self.edits.append(text)
+    async def edit_text(self, text=None, **kwargs):
+        if text is not None:
+            self.edits.append(text)
+        elif "rich_text" in kwargs:
+            self.edits.append(kwargs["rich_text"])
         self.options.append(kwargs)
         return self
 
@@ -228,11 +231,11 @@ async def test_config_cli_and_steppers_and_inline_query(app):
     await invoke(app, "+config Metrics tags")
     unit_tags = last_unit(app)
     assert "tag1" in unit_tags.data["text"]
-    await click(app, unit_tags, "❌ tag1")
+    await click(app, unit_tags, "tag1")
     assert custom.config["tags"] == ["tag2"]
 
     # 4. Inline query cfg со случайным 5-символьным токеном
-    add_btn = next(b for row in unit_tags.data["markup"].inline_keyboard for b in row if b.text == "➕ Добавить")
+    add_btn = next(b for row in unit_tags.data["markup"].inline_keyboard for b in row if b.text == "Добавить")
     assert add_btn.switch_inline_query_current_chat.startswith("cfg ")
     token = add_btn.switch_inline_query_current_chat.split()[1]
     assert len(token) == 5

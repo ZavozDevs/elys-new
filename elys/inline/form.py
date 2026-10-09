@@ -14,6 +14,13 @@ from pyrogram.handlers import (
     InlineQueryHandler,
     MessageHandler,
 )
+from pyrogram.raw.types import (
+    Updates,
+    UpdatesCombined,
+    UpdateShortChatMessage,
+    UpdateShortMessage,
+    UpdateShortSentMessage,
+)
 from pyrogram.types import (
     InlineKeyboardMarkup,
     InlineQueryResultArticle,
@@ -26,13 +33,27 @@ from elys.core.registry import change_handler
 from elys.ui.banner import preview
 from elys.ui.emoji import PLACEHOLDER, render
 
-from .button import Button
-from .list import page_buttons
+from .list import close_button, page_buttons
 from .units import Units
 
 log = logging.getLogger(__name__)
 GROUP = -1000
 _CALLBACK = re.compile(r"^([A-Za-z0-9]{8}):(\d+)$")
+
+
+def _extract_msg_id(res):
+    if res is None:
+        return None
+    if isinstance(res, (UpdateShortSentMessage, UpdateShortMessage, UpdateShortChatMessage)):
+        return res.id
+    if isinstance(res, (Updates, UpdatesCombined)):
+        for u in getattr(res, "updates", ()):
+            mid = getattr(getattr(u, "message", None), "id", None)
+            if isinstance(mid, int):
+                return mid
+            if hasattr(u, "id") and isinstance(u.id, int):
+                return u.id
+    return getattr(res, "id", None) if isinstance(getattr(res, "id", None), int) else None
 
 
 class Inline:
@@ -129,16 +150,20 @@ class Inline:
         try:
             if self._deferred(text):
                 unit.data["sent"] = asyncio.get_running_loop().create_future()
-            rows = list(buttons) or [[Button("Закрыть", self._dismiss)]]
+            rows = list(buttons) or [[close_button(self._dismiss)]]
             unit.data["markup"] = self._keyboard(unit, rows)
             results = await self.app.client.get_inline_bot_results(self.app.bot.me.username, f"elys:{unit.id}")
             if not results.results:
                 raise RuntimeError("Бот не вернул форму. Перезапусти Elys и попробуй снова.")
             chat_id = message if isinstance(message, int) else message.chat.id
-            await self.app.client.send_inline_bot_result(
+            unit.data["chat_id"] = chat_id
+            sent_raw = await self.app.client.send_inline_bot_result(
                 chat_id, results.query_id, unit.id,
                 message_thread_id=getattr(message, "message_thread_id", None),
             )
+            msg_id = _extract_msg_id(sent_raw)
+            if msg_id:
+                unit.data["message_id"] = msg_id
             if "sent" in unit.data:
                 await self._finish(unit)
             return unit
@@ -441,10 +466,21 @@ class Inline:
     async def _dismiss(self, bot, query, data):
         unit = self.from_query(query)
         if unit:
-            if unit.kind == "gallery":
-                await query.edit_message_caption("Галерея закрыта.", reply_markup=InlineKeyboardMarkup([]))
-            else:
-                await self.edit(query, "Меню закрыто. Чтобы открыть его снова, повтори команду.")
+            chat_id = unit.data.get("chat_id")
+            message_id = unit.data.get("message_id")
+            deleted = False
+            if chat_id is not None and message_id is not None:
+                with suppress(Exception):
+                    if unit.data.get("direct"):
+                        await self.app.bot.delete_messages(chat_id, message_id)
+                    else:
+                        await self.app.client.delete_messages(chat_id, message_id, revoke=True)
+                    deleted = True
+            if not deleted:
+                if unit.kind == "gallery":
+                    await query.edit_message_caption("Галерея закрыта.", reply_markup=None)
+                else:
+                    await self.edit(query, "Меню закрыто. Чтобы открыть его снова, повтори команду.")
             self.units.remove(unit.id)
 
     async def listing(self, owner, message, pages, **kwargs):
@@ -453,12 +489,12 @@ class Inline:
             raise ValueError("списку нужна хотя бы одна страница")
 
         async def navigate(bot, query, index):
-            await self.edit(query, f"{pages[index]}\n\n<i>{index + 1} / {len(pages)}</i>",
-                            [*page_buttons(index, len(pages), navigate), [Button("Закрыть", self._dismiss)]],
+            await self.edit(query, pages[index],
+                            [*page_buttons(index, len(pages), navigate), [close_button(self._dismiss)]],
                             banner=kwargs.get("banner"))
 
-        return await self.form(owner, message, f"{pages[0]}\n\n<i>1 / {len(pages)}</i>",
-                               [*page_buttons(0, len(pages), navigate), [Button("Закрыть", self._dismiss)]],
+        return await self.form(owner, message, pages[0],
+                               [*page_buttons(0, len(pages), navigate), [close_button(self._dismiss)]],
                                kind="list", **kwargs)
 
     async def gallery(self, owner, message, photos, **kwargs):
@@ -472,7 +508,7 @@ class Inline:
                 return
             old_buttons = unit.buttons
             markup = self._keyboard(unit, [*page_buttons(index, len(photos), navigate),
-                                           [Button("Закрыть", self._dismiss)]])
+                                           [close_button(self._dismiss)]])
             photo = photos[index]
             try:
                 await query.edit_message_media(InputMediaPhoto(photo.url, caption=self._text(photo.caption),
@@ -483,5 +519,5 @@ class Inline:
             unit.data.update(index=index, markup=markup)
 
         return await self.form(owner, message, photos[0].caption,
-                               [*page_buttons(0, len(photos), navigate), [Button("Закрыть", self._dismiss)]],
+                               [*page_buttons(0, len(photos), navigate), [close_button(self._dismiss)]],
                                kind="gallery", data={"photos": photos, "index": 0}, **kwargs)

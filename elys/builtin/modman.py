@@ -39,7 +39,7 @@ async def download(client: Client, message: Message):
                       f"<blockquote>{html.code(p + 'dlm --trust')} — в ответ на файл .py\n"
                       f"{html.code(p + 'dlm <ссылка или путь> --trust')} — по адресу</blockquote>\n"
                       "Вместо &lt;…&gt; — адрес твоего файла.\n\n"
-                      f"{E.warn_security} Модуль и его зависимости получают полный доступ к аккаунту и компьютеру.\n"
+                      f"{E.warn} Модуль и его зависимости получают полный доступ к аккаунту и компьютеру.\n"
                       "<b>Устанавливай только доверенный код.</b> "
                       "<code>--trust</code> — твоё согласие, не проверка безопасности.")
         return

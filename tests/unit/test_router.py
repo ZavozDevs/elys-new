@@ -93,7 +93,7 @@ def test_remove_owner():
     assert router.get("p") is None
 
 
-@pytest.mark.parametrize("prefixes", [(), ("",), (" ",)])
+@pytest.mark.parametrize("prefixes", [(), ("",), (" ",), ("a",), ("1",), ("!a",)])
 def test_bad_prefixes(prefixes):
     with pytest.raises(ValueError):
         Router(prefixes)

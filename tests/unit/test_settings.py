@@ -65,7 +65,7 @@ def test_rate_limits_json_and_stable_prefixes(tmp_path):
     assert s.rate_limits == {"message": {"rate": 2, "burst": 3}}
 
 
-@pytest.mark.parametrize("value", ["[1]", "[]", "[\"a b\"]", "true"])
+@pytest.mark.parametrize("value", ["[1]", "[]", "[\"a b\"]", "true", "[\"a\"]", "[\"!1\"]"])
 def test_invalid_prefixes_in_toml(tmp_path, value):
     (tmp_path / "settings.toml").write_text(f'api_id = 1\napi_hash = "h"\nprefixes = {value}\n')
     with pytest.raises(SettingsError, match="prefixes"):

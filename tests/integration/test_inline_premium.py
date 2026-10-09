@@ -153,14 +153,14 @@ async def test_chosen_for_unknown_form_is_harmless_and_failed_send_removes_the_f
     assert not app.inline.units.items
 
 
-async def test_inline_form_buttons_use_plain_emoji_but_bot_messages_keep_premium_icons(app):
+async def test_inline_form_buttons_have_clean_text_but_bot_messages_keep_premium_icons(app):
     from tests.inline_helpers import query_for
 
     item, _ = await prepare(app)
     unit = await item.form(99, "<b>Форма</b>", [[Button("Настройки", AsyncMock(), icon="gear")]])
     button = (await first_result(app, unit)).reply_markup.inline_keyboard[0][0]
-    # Telegram вырезает иконку у inline-сообщений: вместо неё обычный эмодзи в тексте.
-    assert button.text == "⚙️ Настройки" and not button.icon_custom_emoji_id
+    # Telegram вырезает иконку у inline-сообщений: подпись остаётся без эмодзи.
+    assert button.text == "Настройки" and not button.icon_custom_emoji_id
 
     direct = await app.inline.bot_form(item, 99, "<b>Форма</b>", [[Button("Настройки", AsyncMock(), icon="gear")]])
     sent = app.bot.send_message.call_args.kwargs["reply_markup"].inline_keyboard[0][0]
@@ -173,4 +173,4 @@ async def test_inline_form_buttons_use_plain_emoji_but_bot_messages_keep_premium
 
     app.premium = False  # без Premium у владельца иконка невозможна и в сообщении бота
     plain = await app.inline.bot_form(item, 99, "x", [[Button("Настройки", AsyncMock(), icon="gear")]])
-    assert plain.data["markup"].inline_keyboard[0][0].text == "⚙️ Настройки"
+    assert plain.data["markup"].inline_keyboard[0][0].text == "Настройки"

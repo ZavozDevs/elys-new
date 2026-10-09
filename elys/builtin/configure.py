@@ -9,6 +9,7 @@ from pyrogram import Client
 from pyrogram.types import Message
 
 from elys import Button, Config, E, Module, UserError, html, raw_args, respond
+from elys.inline.list import nav_row
 
 module = Module("Configure")
 _TOKENS = string.ascii_letters + string.digits
@@ -108,7 +109,12 @@ def go(text, route, **kwargs):
 
 
 def back(route):
-    return [go("‹ Назад", route)]
+    return [go("‹ Назад", route, style="primary")]
+
+
+def is_system(item):
+    # встроенный модуль — тот, что не установлен из файла пользователя.
+    return item.name not in module.app.loader.sources
 
 
 def paged(rows, route, page=0, per_page=6, cols=2):
@@ -117,14 +123,12 @@ def paged(rows, route, page=0, per_page=6, cols=2):
     page = min(max(page, 0), count - 1)
     slice_ = flat[page * per_page : (page + 1) * per_page]
     result = [slice_[i : i + cols] for i in range(0, len(slice_), cols)]
-    nav = []
-    if page:
-        nav.append(go("‹ Предыдущие", (*route, page - 1)))
-    if page + 1 < count:
-        nav.append(go("Следующие ›", (*route, page + 1)))
-    if nav:
-        result.append(nav)
+    result += nav_row(page, count, lambda text, index, style: go(text, (*route, index), style=style))
     return result
+
+
+def scope_of(item):
+    return "system" if is_system(item) else "user"
 
 
 def target(name):
@@ -137,14 +141,12 @@ def target(name):
 def screen(route):
     app = module.app
     kind, *args = route
-    p = app.router.prefixes[0]
     if kind == "home":
-        return (f"{E.gear} <b>Elys · настройки</b>\n\n"
-                "<blockquote>Выбери раздел настроек.</blockquote>\n\n"
-                f"Открыть снова → {html.code(p + 'config')}",
-                [[go("Настройки Elys", ("core",), style="primary", icon="gear"),
-                  go("Настройки модулей", ("modules", 0), icon="folder")],
-                 [Button("Закрыть", close, icon="cross")]])
+        return (f"{E.gear} <b>Elys · настройки</b>",
+                [[go("Настройки Elys", ("core",), style="primary", icon="gear")],
+                 [go("Системные", ("modules", "system", 0)),
+                  go("Сторонние", ("modules", "user", 0))],
+                 [Button("Закрыть", close, style="danger", icon="cross")]])
     if kind == "core":
         aliases = len(app.router.aliases)
         text = (f"{E.gear} <b>Настройки Elys</b>\n\n<blockquote>"
@@ -161,15 +163,16 @@ def screen(route):
         if key == "prefixes":
             text += (f"Сейчас: {html.code(' '.join(app.router.prefixes))}\n"
                      "Знак перед командой (например <code>. !</code>).")
-            rows = [[make_token_btn("Изменить", "core", "core", "prefixes", style="primary", icon="memo")]]
+            rows = [[make_token_btn("Изменить", "core", "core", "prefixes", style="primary")]]
         elif key == "start_banner":
-            text += (f"Сейчас: {shown(app.kv.ns('core').get('start_banner', ''))}\n"
+            current_banner = app.kv.ns("core").get("start_banner", "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_userbot/start_cmd.png")
+            text += (f"Сейчас: {shown(current_banner)}\n"
                      "Ссылка на картинку приветствия форума.")
             rows = [[make_token_btn("Задать ссылку", "core", "core", "start_banner", style="primary"),
                      Button("Убрать картинку", set_core, (key, ""))]]
         elif key == "language":
             text += "Язык интерфейса бота."
-            rows = [[Button(("✓ " if app.language == code else "") + name, set_core, (key, code))
+            rows = [[Button(name, set_core, (key, code), style="success" if app.language == code else "default")
                      for code, name in (("ru", "Русский"), ("en", "English"))]]
         elif key == "banners":
             text += f"Сейчас: {shown(app.banners_enabled)}.\nПоказ картинок над ответами команд."
@@ -182,28 +185,35 @@ def screen(route):
             rows.append([make_token_btn("Добавить сокращение", "core", "core", "aliases", style="primary")])
         return text, [*rows, back(("core",))]
     if kind == "modules":
-        items = sorted((m for m in app.modules.values() if m.config), key=lambda m: m.name.casefold())
+        scope = args[0]
+        if scope not in ("system", "user"):
+            raise ValueError("неизвестный раздел модулей")
+        items = sorted((m for m in app.modules.values() if m.config and is_system(m) == (scope == "system")),
+                       key=lambda m: m.name.casefold())
+        title = "Системные модули" if scope == "system" else "Пользовательские модули"
         btns = [go(item.name, ("module", item.name, 0)) for item in items]
-        return (f"{E.gear} <b>Настройки модулей</b>\n\nВыбери модуль:",
-                [*paged(btns, ("modules",), args[0]), back(("home",))])
+        hint = "Выбери модуль:" if items else "Здесь пока нет модулей с настройками."
+        return (f"{E.gear} <b>{title}</b>\n\n{hint}",
+                [*paged(btns, ("modules", scope), args[1]), back(("home",))])
     item = target(args[0])
     if kind == "module":
         btns = [go(field.doc[:45] or key, ("field", item.name, key, 0)) for key, field in item.config.fields.items()]
         return (f"{E.gear} <b>{html.escape(item.name)} · настройки</b>\n\nВыбери параметр:",
-                [*paged(btns, ("module", item.name), args[1]), back(("modules", 0))])
+                [*paged(btns, ("module", item.name), args[1]), back(("modules", scope_of(item), 0))])
     key = args[1]
     field = item.config.fields[key]
     route = ("field", item.name, key, 0)
     title = f"{E.gear} <b>{html.escape(item.name)} · {html.escape(key)}</b>\n\n"
     if kind == "reset":
         text = title + f"Вернуть значение по умолчанию: {shown(field.default, secret=field.secret)}?"
-        reset_button = Button("Вернуть по умолчанию", reset, (item.name, key), style="danger", icon="recycle")
+        reset_button = Button("Вернуть по умолчанию", reset, (item.name, key), style="danger")
         return text, [[reset_button], back(route)]
     text = (title + html.escape(field.doc) + "\n\n<blockquote>"
             f"Сейчас: {shown(item.config[key], secret=field.secret)}\n"
             f"По умолчанию: {shown(field.default, secret=field.secret)}</blockquote>")
     if field.choices:
-        btns = [Button(f"Вариант {i + 1}" if field.secret else str(v)[:50], set_field, (item.name, key, v))
+        btns = [Button(f"Вариант {i + 1}" if field.secret else str(v)[:50], set_field, (item.name, key, v),
+                       style="success" if item.config[key] == v else "default")
                 for i, v in enumerate(field.choices)]
         rows = paged(btns, ("field", item.name, key), args[2])
     elif type(field.default) is bool:
@@ -215,17 +225,17 @@ def screen(route):
              Button("-1", step_field, (item.name, key, -1)),
              Button("+1", step_field, (item.name, key, 1)),
              Button("+10", step_field, (item.name, key, 10))],
-            [make_token_btn("Ввести число", "set", item.name, key, style="primary", icon="memo")],
+            [make_token_btn("Ввести число", "set", item.name, key, style="primary")],
         ]
     elif isinstance(field.default, list):
-        item_btns = [Button(f"❌ {str(v)[:25]}", remove_item, (item.name, key, v)) for v in item.config[key]]
+        item_btns = [Button(str(v)[:25], remove_item, (item.name, key, v), style="danger") for v in item.config[key]]
         rows = paged(item_btns, ("field", item.name, key), args[2])
-        action_row = [make_token_btn("➕ Добавить", "add", item.name, key, style="primary")]
+        action_row = [make_token_btn("Добавить", "add", item.name, key, style="primary")]
         if item.config[key]:
             action_row.append(Button("Очистить", set_field, (item.name, key, [])))
         rows.append(action_row)
     else:
-        action_row = [make_token_btn("Изменить", "set", item.name, key, style="primary", icon="memo")]
+        action_row = [make_token_btn("Изменить", "set", item.name, key, style="primary")]
         if type(field.default) is str and item.config[key]:
             action_row.append(Button("Очистить", set_field, (item.name, key, "")))
         rows = [action_row]
@@ -241,8 +251,8 @@ async def show(query, route):
     try:
         text, rows = screen(route)
     except (ValueError, KeyError):
-        await query.answer("Этой настройки больше нет. Вернись к списку модулей.", show_alert=True)
-        text, rows = screen(("modules", 0))
+        await query.answer("Этой настройки больше нет. Открыт главный экран.", show_alert=True)
+        text, rows = screen(("home",))
     await module.app.inline.edit(query, text, rows)
 
 
@@ -251,11 +261,7 @@ async def navigate(bot, query, route):
 
 
 async def close(bot, query, data):
-    unit = module.app.inline.from_query(query)
-    text = f"Настройки закрыты. Открыть снова → {html.code(module.app.router.prefixes[0] + 'config')}"
-    await module.app.inline.edit(query, text)
-    if unit:
-        module.app.inline.units.remove(unit.id)
+    await module.app.inline._dismiss(bot, query, data)
 
 
 async def set_core(bot, query, data):

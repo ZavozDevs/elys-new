@@ -4,6 +4,8 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from elys import Module, html
 
+START_BANNER = "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_userbot/start_cmd.png"
+
 module = Module("Welcome")
 
 @module.on_ready
@@ -25,8 +27,8 @@ async def greet(client: Client) -> None:
         [InlineKeyboardButton("Список команд", callback_data="elys:commands", style=ButtonStyle.PRIMARY)],
         [InlineKeyboardButton("Настройки", callback_data="elys:settings", style=ButtonStyle.SUCCESS)],
     ])
-    banner = app.kv.ns("core").get("start_banner")
-    if banner:
+    banner = app.kv.ns("core").get("start_banner", START_BANNER)
+    if banner and hasattr(app.bot, "send_photo"):
         message = await app.bot.send_photo(forum.chat_id, banner, caption=text, reply_markup=markup)
     else:
         message = await app.bot.send_message(forum.chat_id, text, reply_markup=markup)
@@ -46,13 +48,8 @@ async def commands(bot, query):
         await app.inline.edit(pressed, pages[index], buttons(index))
 
     def buttons(index):
-        from elys import Button
-        row = []
-        if index:
-            row.append(Button("‹ Назад", page, index - 1))
-        if index + 1 < len(pages):
-            row.append(Button("Дальше ›", page, index + 1))
-        return [row] if row else []
+        from elys.inline.list import page_buttons
+        return page_buttons(index, len(pages), page)
 
     await app.inline.bot_form(module, query.message.chat.id, pages[0], buttons(0))
     await query.answer()

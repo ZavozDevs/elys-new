@@ -10,10 +10,12 @@ from pyrogram.types import Message
 from elys import Config, Module, format_uptime, respond
 from elys.ui.emoji import render
 
+BANNER = "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_userbot/ping_cmd.png"
+
 # Дефолтный классический дизайн Elys / Heroku:
 DEFAULT_PING_MESSAGE = (
-    "<blockquote>{e:flash_ping} <b>Понг:</b> <code>{ping}</code> <b>𝚖𝚜</b>\n"
-    "{e:clock_uptime} <b>𝚄𝚙𝚝𝚒𝚖𝚎:</b> <code>{uptime}</code></blockquote>"
+    "<blockquote>{e:ping} <b>Понг:</b> <code>{ping}</code> <b>𝚖𝚜</b>\n"
+    "{e:uptime} <b>𝚄𝚙𝚝𝚒𝚖𝚎:</b> <code>{uptime}</code></blockquote>"
 )
 
 FORTUNES = (
@@ -36,7 +38,7 @@ module = Module(
             doc="Шаблон пинга ({ping}, {uptime}, {fortune}, {me}, {hostname})",
         ),
         ping_emoji=Config.value("🌟", doc="Эмодзи или текст во время замера пинга"),
-        banner=Config.url("", doc="Картинка-баннер над ответом"),
+        banner=Config.url(BANNER, doc="Картинка-баннер над ответом"),
     ),
 )
 

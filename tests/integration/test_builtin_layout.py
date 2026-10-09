@@ -21,15 +21,16 @@ async def parse(text):
 async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
     await setup(app)
     app.premium = premium
-    for command in (".help", ".help Ping", ".lm", ".dlm", ".ping", ".config"):
+    for command in (".help", ".help Ping", ".lm", ".dlm", ".ping"):
         message = await invoke(app, command)
-        if command == ".config":
-            # Команда удаляется, а экран — это текст формы в чате.
-            assert message.deleted and not message.edits
-            text = app.inline._text(last_unit(app).data["text"])
-        else:
-            assert not message.deleted
-            text = message.edits[-1]
+        assert not message.deleted
+        text = message.edits[-1]
+        if premium and command in (".help", ".help Ping"):
+            # В премиум-режиме справка использует rich HTML (details, table, h1, code)
+            assert "<details" in text or "<table" in text
+            assert "<code>" in text
+            assert "<tg-emoji" in text
+            continue
         parsed = await parse(text)
         assert any(isinstance(e, MessageEntityBlockquote) for e in parsed["entities"]), command
         assert any(isinstance(e, MessageEntityCode) for e in parsed["entities"]), command
@@ -38,11 +39,18 @@ async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
         assert "{e:" not in parsed["message"]
         if command != ".ping":
             assert any(isinstance(e, MessageEntityCustomEmoji) for e in parsed["entities"]) is premium
-    # Справка не превращается в инструкцию по установке и план разработки.
-    overview = (await parse((await invoke(app, ".help")).edits[0]))["message"]
+
+    # Проверка формы .config
+    cfg = await invoke(app, ".config")
+    assert cfg.deleted
+    assert "Elys · настройки" in last_unit(app).data["text"]
+
+    # Справка без премиума не превращается в инструкцию по установке и план разработки.
+    app.premium = False
+    overview = (await parse((await invoke(app, ".help")).edits[-1]))["message"]
     assert len(overview) < 550
-    assert ".dlm" in overview and ".config" in overview and ".help Ping" in overview
-    detail = (await invoke(app, ".help Ping")).edits[0]
+    assert ".dlm" in overview and ".config" in overview
+    detail = (await invoke(app, ".help Ping")).edits[-1]
     assert "этап" not in detail and ".config" not in detail
 
 

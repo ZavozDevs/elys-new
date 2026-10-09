@@ -14,7 +14,7 @@ def install_inline(app):
     app.client.me.username = "elys_test_bot"
     app.client.send_message = AsyncMock(return_value=SimpleNamespace(id=10))
     app.client.delete_messages = AsyncMock()
-    app.client.send_inline_bot_result = AsyncMock()
+    app.client.send_inline_bot_result = AsyncMock(return_value=SimpleNamespace(id=555))
     app.client.edit_inline_text = AsyncMock()
 
     async def get_results(bot, text):

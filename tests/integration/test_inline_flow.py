@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -20,12 +21,18 @@ async def test_config_navigation_prefix_alias_persistence_and_secrets(app):
         count=Config.value(2, doc="Количество"), token=Config.secret("private-default", doc="Секрет"),
         enabled=Config.value(True, doc="Работать"), color=Config.choice("red", ["red", "blue"], doc="Цвет"),
     ))
+    app.loader.sources[item.name] = Path("demo.py")
     await app.load(item)
     assert app.router.get("prefs") is None
     await invoke(app, ".config")
     unit = last_unit(app)
-    assert "Настройки модулей" in [b.text for b in unit.buttons.values()]
-    await click(app, unit, "Настройки модулей")
+    # Главный экран: сверху одна кнопка, ниже два раздела модулей и «Закрыть».
+    assert [b.text for b in unit.buttons.values()] == [
+        "Настройки Elys", "Системные", "Сторонние", "Закрыть"]
+    assert [[b.text for b in row] for row in unit.data["markup"].inline_keyboard] == [
+        ["Настройки Elys"], ["Системные", "Сторонние"], ["Закрыть"]]
+    await click(app, unit, "Сторонние")
+    assert "Назад" not in unit.data["text"] and "<Demo>" in [b.text for b in unit.buttons.values()]
     await click(app, unit, "<Demo>")
     await click(app, unit, "Секрет")
     assert "private-default" not in unit.data["text"]
@@ -48,7 +55,7 @@ async def test_config_navigation_prefix_alias_persistence_and_secrets(app):
     assert "<Demo>" in parsed["message"]
     await app.unload(item.name)
     await click(app, unit, "‹ Назад")
-    assert "Настройки модулей" in unit.data["text"]
+    assert "Пользовательские модули" in unit.data["text"] or "Elys · настройки" in unit.data["text"]
     assert not app.kv.ns("cfg:<Demo>")["enabled"]
 
 
@@ -89,17 +96,18 @@ async def test_forms_in_lists_gallery_and_premium_html(app):
     assert result.input_message_content.link_preview_options.show_above_text
     assert not result.reply_markup.inline_keyboard[0][0].icon_custom_emoji_id
     listing = await item.list(99, ["<b>Первая</b>", "Вторая"])
-    await click(app, listing, "Дальше ›")
+    await click(app, listing, "→")
     assert "Вторая" in listing.data["text"]
-    await click(app, listing, "‹ Назад")
+    assert [b.text for b in listing.buttons.values()] == ["←", "2 / 2", "→", "Закрыть"]
+    await click(app, listing, "←")
     assert "Первая" in listing.data["text"]
     gallery = await item.gallery(99, [Photo("https://example.org/1.jpg", "один"),
                                      Photo("https://example.org/2.jpg", "два")])
-    query = await click(app, gallery, "Дальше ›")
+    query = await click(app, gallery, "→")
     assert query.edit_message_media.call_args.args[0].media.endswith("2.jpg")
     assert gallery.data["index"] == 1
-    closed = await click(app, gallery, "Закрыть")
-    closed.edit_message_caption.assert_awaited_once()
+    await click(app, gallery, "Закрыть")
+    app.client.delete_messages.assert_awaited_once_with(99, 555, revoke=True)
     assert gallery.id not in app.inline.units.items
     await app.unload("Forms")
     assert not app.inline.units.items
@@ -153,7 +161,7 @@ async def test_core_input_via_inline_query_and_navigation(app):
     assert "Сейчас: <code>! .</code>" in unit.data["text"]
     await click(app, unit, "‹ Назад")
     await click(app, unit, "‹ Назад")
-    assert "!config" in unit.data["text"]
+    assert "Elys · настройки" in unit.data["text"]
 
 
 async def test_config_pages_and_unload_cleans_units(app):
@@ -162,11 +170,11 @@ async def test_config_pages_and_unload_cleans_units(app):
         await app.load(Module(f"M{i}", config=Config(value=Config.value(i))))
     await invoke(app, ".config")
     unit = last_unit(app)
-    await click(app, unit, "Настройки модулей")
+    await click(app, unit, "Системные")
     first = [b.text for b in unit.buttons.values()]
-    await click(app, unit, "Следующие ›")
+    await click(app, unit, "→")
     assert [b.text for b in unit.buttons.values()] != first
-    await click(app, unit, "‹ Предыдущие")
+    await click(app, unit, "←")
     assert [b.text for b in unit.buttons.values()] == first
     await click(app, unit, "M0")
     await click(app, unit, "value")
@@ -211,11 +219,11 @@ async def test_welcome_commands_single_page_and_navigation(app, extra_commands):
         markup = sent.kwargs["reply_markup"]
         raw_markup = await markup.write(app.bot)
         assert raw_markup.rows and all(row.buttons for row in raw_markup.rows)
-        assert list(button.text for button in unit.buttons.values()) == ["Дальше ›"]
-        await click(app, unit, "Дальше ›")
+        assert list(button.text for button in unit.buttons.values()) == ["←", "1 / 2", "→"]
+        await click(app, unit, "→")
         assert ".extra29" in unit.data["text"]
-        assert list(button.text for button in unit.buttons.values()) == ["‹ Назад"]
-        await click(app, unit, "‹ Назад")
+        assert list(button.text for button in unit.buttons.values()) == ["←", "2 / 2", "→"]
+        await click(app, unit, "←")
         assert ".ping" in unit.data["text"]
     else:
         assert sent.kwargs["reply_markup"] is None

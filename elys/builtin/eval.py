@@ -4,6 +4,7 @@ import inspect
 import io
 import linecache
 import traceback
+from contextlib import suppress
 from typing import Any
 
 import pyrogram
@@ -16,6 +17,8 @@ module = Module("Eval")
 
 FILENAME = "<eval>"
 LIMIT = 4000  # лимит текста telegram 4096, с запасом на заголовки
+PAGE = 3800  # страница листалки: текст + номер страницы
+PAGES = 10  # больше страниц листать неудобно — отдаём файлом
 
 
 @module.command("e", aliases=["eval"])
@@ -50,14 +53,71 @@ async def evaluate(client: Client, message: Message) -> None:
     else:
         body, ok = out.getvalue() + ("" if result is None else _show(result)), True
 
-    # лимит — по тексту после разбора HTML, не по длине &lt; и других entities.
+    body = body.strip() or "None"
+    mark = "✅" if ok else "🚫"
     code = _truncate(source, 1000)
-    room = LIMIT - len(code.encode("utf-16-le")) // 2
-    body = _truncate(body.strip() or "None", room)
-    await respond(
-        message,
-        f'<pre language="python">{html.escape(code)}</pre>\n{"✅" if ok else "🚫"} <pre>{html.escape(body)}</pre>',
-    )
+    room = LIMIT - _units(code)
+
+    # 1. влезает в одно сообщение — как раньше.
+    if _units(body) <= room:
+        await respond(message, _screen(code, mark, body))
+        return
+
+    # 2. длинный вывод — листалка через бота (до PAGES страниц).
+    short = _truncate(source, 300)
+    chunks = _split(body, PAGE - _units(short))
+    if len(chunks) <= PAGES and await _paginate(message, short, mark, chunks):
+        return
+
+    # 3. бот недоступен или страниц слишком много — файлом.
+    if await _send_file(client, message, short, mark, body):
+        return
+
+    # 4. совсем ничего не вышло — обрезаем, чтобы хоть что-то показать.
+    await respond(message, _screen(code, mark, _truncate(body, room)))
+
+
+def _screen(code: str, mark: str, body: str) -> str:
+    return f'<pre language="python">{html.escape(code)}</pre>\n{mark} <pre>{html.escape(body)}</pre>'
+
+
+async def _paginate(message: Message, code: str, mark: str, chunks: list[str]) -> bool:
+    app = module.app
+    if getattr(app, "inline", None) is None or getattr(app, "bot", None) is None:
+        return False
+    try:
+        await module.list(message, [_screen(code, mark, chunk) for chunk in chunks])
+    except Exception:
+        module.log.warning("не удалось показать вывод листалкой, отправляю файлом", exc_info=True)
+        return False
+    await _drop(message)
+    return True
+
+
+async def _drop(message: Message) -> None:
+    # ответ ушёл новым сообщением — убираем команду, но только свою.
+    if message.outgoing:
+        with suppress(Exception):
+            await message.delete()
+
+
+async def _send_file(client: Client, message: Message, code: str, mark: str, body: str) -> bool:
+    data = body.encode("utf-8")
+    document = io.BytesIO(data)
+    document.name = "eval.txt"
+    try:
+        await client.send_document(
+            message.chat.id,
+            document,
+            caption=f'<pre language="python">{html.escape(code)}</pre>\n{mark} вывод в файле · {_size(len(data))}',
+            message_thread_id=getattr(message, "message_thread_id", None),
+            reply_to_message_id=getattr(message, "reply_to_message_id", None),
+        )
+    except Exception:
+        module.log.warning("не удалось отправить вывод файлом", exc_info=True)
+        return False
+    await _drop(message)
+    return True
 
 
 async def run(source: str, env: dict[str, Any]) -> Any:
@@ -76,6 +136,35 @@ async def run(source: str, env: dict[str, Any]) -> Any:
     else:
         exec(code, env)
     return env.get("__result__")
+
+
+def _units(text: str) -> int:
+    # длина в utf-16 — так считает telegram.
+    return len(text.encode("utf-16-le")) // 2
+
+
+def _split(text: str, units: int) -> list[str]:
+    # режем по строкам, длинную строку — по utf-16 без разрыва суррогатных пар.
+    chunks, current = [], ""
+    for line in text.splitlines(keepends=True):
+        while _units(line) > units:
+            if current:
+                chunks.append(current)
+                current = ""
+            head = line.encode("utf-16-le")[: units * 2].decode("utf-16-le", errors="ignore")
+            chunks.append(head)
+            line = line[len(head):]
+        if _units(current) + _units(line) > units:
+            chunks.append(current)
+            current = ""
+        current += line
+    if current:
+        chunks.append(current)
+    return [chunk.rstrip("\n") or " " for chunk in chunks]
+
+
+def _size(count: int) -> str:
+    return f"{count} Б" if count < 1024 else f"{count / 1024:.1f} КБ"
 
 
 def _truncate(text: str, units: int) -> str:

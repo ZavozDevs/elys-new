@@ -64,8 +64,10 @@ class Router:
     @prefixes.setter
     def prefixes(self, value: Iterable[str]) -> None:
         prefixes = tuple(value)
-        if not prefixes or not all(isinstance(p, str) and p and not any(c.isspace() for c in p) for p in prefixes):
-            raise ValueError(f"плохие префиксы: {prefixes!r}")
+        if not prefixes or not all(
+            isinstance(p, str) and p and not any(c.isspace() or c.isalnum() for c in p) for p in prefixes
+        ):
+            raise ValueError("префикс должен состоять из знаков (например . или !), без букв, цифр и пробелов")
         self._prefixes = tuple(dict.fromkeys(prefixes))  # порядок пользователя, первый — основной
         self._matching_prefixes = tuple(sorted(self._prefixes, key=len, reverse=True))
         self._first = frozenset(p[0] for p in self._prefixes)

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyrogram.enums import ParseMode
+from pyrogram.errors import RPCError
 from pyrogram.types import Message
 
 from elys.ui.banner import preview
+from elys.ui.emoji import render
 
 from .context import current
 
@@ -16,19 +19,34 @@ class UserError(Exception):
     pass
 
 
-async def respond(message: Message, text: str, *, banner: str | None = None, **kwargs: Any) -> Message:
+async def respond(message: Message, text: str = "", *, rich_text: str | None = None,
+                  banner: str | None = None, **kwargs: Any) -> Message:
     # своё сообщение — редактируем, чужое (sudo) — отвечаем.
-    kwargs.setdefault("link_preview_options", preview(banner, getattr(current.get(), "banners_enabled", True)))
+    app = current.get()
+    is_premium = bool(getattr(app, "premium", False))
     sender = getattr(message, "from_user", None)
-    client_me = getattr(getattr(message, "_client", None), "me", None)
-    me_id = getattr(client_me, "id", None)
-    is_self = (
+    me_id = getattr(getattr(getattr(message, "_client", None), "me", None), "id", None)
+    is_own = (
         bool(message.outgoing)
         or (sender is not None and getattr(sender, "is_self", False))
         or (sender is not None and me_id is not None and sender.id == me_id)
         or (me_id is not None and getattr(getattr(message, "chat", None), "id", None) == me_id)
     )
-    if is_self:
+
+    if rich_text and is_premium:
+        rendered_rich = render(rich_text, premium=True)
+        try:
+            if is_own:
+                return await message.edit_text(rich_text=rendered_rich, rich_text_parse_mode=ParseMode.HTML)
+            if hasattr(message, "reply_rich"):
+                return await message.reply_rich(rendered_rich, parse_mode=ParseMode.HTML)
+        except RPCError:
+            pass
+        except TypeError:
+            pass
+
+    kwargs.setdefault("link_preview_options", preview(banner, getattr(app, "banners_enabled", True)))
+    if is_own:
         return await message.edit_text(text, **kwargs)
     return await message.reply(text, **kwargs)
 

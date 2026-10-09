@@ -26,6 +26,13 @@ def test_registry_and_every_builtin_template():
         assert not unknown(text), text
 
 
+def test_info_and_ping_templates_use_only_known_emoji():
+    from elys.builtin import info, ping
+
+    for text in (info.DEFAULT_INFO_MESSAGE, info.SERVINFO_TEMPLATE, ping.DEFAULT_PING_MESSAGE):
+        assert not unknown(text), unknown(text)
+
+
 @pytest.mark.parametrize("premium", [False, True])
 async def test_emoji_in_html_is_parsed_by_real_wzgram(premium):
     host = SimpleNamespace(premium=premium)

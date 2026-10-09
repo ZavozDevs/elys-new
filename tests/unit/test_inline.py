@@ -52,8 +52,8 @@ def test_button_icons_follow_telegram_constraints(direct, premium, style, visibl
     button = Button("Готово", AsyncMock(), icon="check", style=style)
     result = button.render("Abc12345:0", direct=direct, premium=premium)
     assert bool(result.icon_custom_emoji_id) is visible
-    # Где премиум-иконка невозможна, вместо неё обычный эмодзи перед текстом.
-    assert result.text == ("Готово" if visible else "✅ Готово")
+    # Где премиум-иконка невозможна, подпись остаётся чистой — без эмодзи в тексте.
+    assert result.text == "Готово"
     assert result.style == ButtonStyle[style.upper()]
     assert len(result.callback_data.encode()) <= 64
 
