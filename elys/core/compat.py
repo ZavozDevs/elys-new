@@ -347,6 +347,222 @@ class _LegacyKeyboardButtonGameOld(TLObject):
         )
 
 
+class _LegacyPageBlockBlockquote(TLObject):
+    __slots__ = ["caption", "collapsed", "text"]
+    ID = 0x263d7c26
+    QUALNAME = "types.PageBlockBlockquote"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.PageBlockBlockquote:
+        text = TLObject.read(b)
+        caption = TLObject.read(b)
+        return raw.types.PageBlockBlockquote(text=text, caption=caption)
+
+
+class _LegacyPageBlockOrderedList(TLObject):
+    __slots__ = ["items", "reversed", "start", "type"]
+    ID = 0x9a8ae1e1
+    QUALNAME = "types.PageBlockOrderedList"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.PageBlockOrderedList:
+        items = TLObject.read(b)
+        return raw.types.PageBlockOrderedList(items=items)
+
+
+class _LegacyPageListItemText(TLObject):
+    __slots__ = ["checkbox", "checked", "text"]
+    ID = 0xb92fb6cd
+    QUALNAME = "types.PageListItemText"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.PageListItemText:
+        text = TLObject.read(b)
+        return raw.types.PageListItemText(text=text)
+
+
+class _LegacyPageListItemBlocks(TLObject):
+    __slots__ = ["blocks", "checkbox", "checked"]
+    ID = 0x25e073fc
+    QUALNAME = "types.PageListItemBlocks"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.PageListItemBlocks:
+        blocks = TLObject.read(b)
+        return raw.types.PageListItemBlocks(blocks=blocks)
+
+
+class _LegacyPageListOrderedItemText(TLObject):
+    __slots__ = ["checkbox", "checked", "num", "text", "type", "value"]
+    ID = 0x5e068047
+    QUALNAME = "types.PageListOrderedItemText"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.PageListOrderedItemText:
+        num = String.read(b)
+        text = TLObject.read(b)
+        return raw.types.PageListOrderedItemText(num=num, text=text)
+
+
+class _LegacyPageListOrderedItemBlocks(TLObject):
+    __slots__ = ["blocks", "checkbox", "checked", "num", "type", "value"]
+    ID = 0x98dd8936
+    QUALNAME = "types.PageListOrderedItemBlocks"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.PageListOrderedItemBlocks:
+        num = String.read(b)
+        blocks = TLObject.read(b)
+        return raw.types.PageListOrderedItemBlocks(num=num, blocks=blocks)
+
+
+class _LegacyMessageEntityBlockquote(TLObject):
+    __slots__ = ["collapsed", "length", "offset"]
+    ID = 0x020df5d0
+    QUALNAME = "types.MessageEntityBlockquote"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.MessageEntityBlockquote:
+        offset = Int.read(b)
+        length = Int.read(b)
+        return raw.types.MessageEntityBlockquote(offset=offset, length=length)
+
+
+class _LegacyMessageMediaWebPage(TLObject):
+    __slots__ = ["force_large_media", "force_small_media", "manual", "safe", "webpage"]
+    ID = 0xa32dd600
+    QUALNAME = "types.MessageMediaWebPage"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.MessageMediaWebPage:
+        webpage = TLObject.read(b)
+        return raw.types.MessageMediaWebPage(webpage=webpage)
+
+
+class _LegacyTextEmpty(TLObject):
+    __slots__: list[str] = []
+    ID = 0x0dc10c20
+    QUALNAME = "types.TextEmpty"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.TextEmpty:
+        return raw.types.TextEmpty()
+
+
+class _LegacyUserStatusRecently(TLObject):
+    __slots__ = ["by_me"]
+    ID = 0xe26f42f1
+    QUALNAME = "types.UserStatusRecently"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.UserStatusRecently:
+        return raw.types.UserStatusRecently()
+
+
+class _LegacyUserStatusLastWeek(TLObject):
+    __slots__ = ["by_me"]
+    ID = 0x07bf09fc
+    QUALNAME = "types.UserStatusLastWeek"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.UserStatusLastWeek:
+        return raw.types.UserStatusLastWeek()
+
+
+class _LegacyUserStatusLastMonth(TLObject):
+    __slots__ = ["by_me"]
+    ID = 0x77ebc742
+    QUALNAME = "types.UserStatusLastMonth"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.UserStatusLastMonth:
+        return raw.types.UserStatusLastMonth()
+
+
+class _LegacyChatParticipant(TLObject):
+    __slots__ = ["date", "inviter_id", "rank", "user_id"]
+    ID = 0xc02d4007
+    QUALNAME = "types.ChatParticipant"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.ChatParticipant:
+        user_id = Long.read(b)
+        inviter_id = Long.read(b)
+        date = Int.read(b)
+        return raw.types.ChatParticipant(user_id=user_id, inviter_id=inviter_id, date=date)
+
+
+class _LegacyChatParticipantCreator(TLObject):
+    __slots__ = ["rank", "user_id"]
+    ID = 0xe46bcee4
+    QUALNAME = "types.ChatParticipantCreator"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.ChatParticipantCreator:
+        user_id = Long.read(b)
+        return raw.types.ChatParticipantCreator(user_id=user_id)
+
+
+class _LegacyChatParticipantAdmin(TLObject):
+    __slots__ = ["date", "inviter_id", "rank", "user_id"]
+    ID = 0xa0933f5b
+    QUALNAME = "types.ChatParticipantAdmin"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.ChatParticipantAdmin:
+        user_id = Long.read(b)
+        inviter_id = Long.read(b)
+        date = Int.read(b)
+        return raw.types.ChatParticipantAdmin(user_id=user_id, inviter_id=inviter_id, date=date)
+
+
+class _LegacyChannelParticipant(TLObject):
+    __slots__ = ["date", "rank", "subscription_until_date", "user_id"]
+    ID = 0xc00c07c0
+    QUALNAME = "types.ChannelParticipant"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.ChannelParticipant:
+        user_id = Long.read(b)
+        date = Int.read(b)
+        return raw.types.ChannelParticipant(user_id=user_id, date=date)
+
+
+class _LegacyChannelParticipantSelf(TLObject):
+    __slots__ = ["date", "inviter_id", "rank", "subscription_until_date", "user_id", "via_request"]
+    ID = 0x35a8bfa7
+    QUALNAME = "types.ChannelParticipantSelf"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.ChannelParticipantSelf:
+        flags = Int.read(b)
+        via_request = bool(flags & (1 << 0))
+        user_id = Long.read(b)
+        inviter_id = Long.read(b)
+        date = Int.read(b)
+        return raw.types.ChannelParticipantSelf(
+            user_id=user_id, inviter_id=inviter_id, date=date, via_request=via_request
+        )
+
+
+class _LegacyChannelParticipantBanned(TLObject):
+    __slots__ = ["banned_rights", "date", "kicked_by", "left", "peer", "rank"]
+    ID = 0x6df8014e
+    QUALNAME = "types.ChannelParticipantBanned"
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> raw.types.ChannelParticipantBanned:
+        flags = Int.read(b)
+        left = bool(flags & (1 << 0))
+        peer = TLObject.read(b)
+        kicked_by = Long.read(b)
+        date = Int.read(b)
+        banned_rights = TLObject.read(b)
+        return raw.types.ChannelParticipantBanned(
+            left=left, peer=peer, kicked_by=kicked_by, date=date, banned_rights=banned_rights
+        )
+
+
 _LEGACY_TYPES = (
     _LegacyReplyInlineMarkup,
     _LegacyKeyboardButtonUrl,
@@ -368,6 +584,24 @@ _LEGACY_TYPES = (
     _LegacyKeyboardButtonBuyOld,
     _LegacyKeyboardButtonGame,
     _LegacyKeyboardButtonGameOld,
+    _LegacyPageBlockBlockquote,
+    _LegacyPageBlockOrderedList,
+    _LegacyPageListItemText,
+    _LegacyPageListItemBlocks,
+    _LegacyPageListOrderedItemText,
+    _LegacyPageListOrderedItemBlocks,
+    _LegacyMessageEntityBlockquote,
+    _LegacyMessageMediaWebPage,
+    _LegacyTextEmpty,
+    _LegacyUserStatusRecently,
+    _LegacyUserStatusLastWeek,
+    _LegacyUserStatusLastMonth,
+    _LegacyChatParticipant,
+    _LegacyChatParticipantCreator,
+    _LegacyChatParticipantAdmin,
+    _LegacyChannelParticipant,
+    _LegacyChannelParticipantSelf,
+    _LegacyChannelParticipantBanned,
 )
 
 
@@ -375,3 +609,4 @@ def register_legacy_types() -> None:
     for cls in _LEGACY_TYPES:
         raw.all.objects[cls.ID] = cls
         raw.core.tl_object.objects[cls.ID] = cls
+

@@ -52,6 +52,9 @@ system:
   lock:
     id: '5298827674221851128'
     fallback: 🔒
+  crack:
+    id: '5352956266585044033'
+    fallback: 💥
 users:
   version:
     id: '5931415565955503486'
