@@ -191,3 +191,29 @@ async def test_file_session_is_private_even_when_login_fails(tmp_path):
         await client.start()
     assert tmp_path.stat().st_mode & 0o777 == 0o700
     assert client.storage.database.stat().st_mode & 0o777 == 0o600
+
+
+def test_legacy_reply_inline_markup_deserialization():
+    from io import BytesIO
+
+    from pyrogram import types
+    from pyrogram.raw.core import TLObject
+    from pyrogram.raw.core.primitives import Int, Vector
+
+    btn_type = raw.types.InlineButtonTypeCallback(data=b"test")
+    btn = raw.types.KeyboardInlineButton(text="Button", type=btn_type)
+    row = raw.types.KeyboardInlineButtonRow(buttons=[btn])
+
+    b = BytesIO()
+    b.write(Int(0x48a30254, False))
+    b.write(Vector([row]))
+    b.seek(0)
+
+    res = TLObject.read(b)
+    assert isinstance(res, raw.types.ReplyInlineMarkup)
+    assert len(res.rows) == 1
+
+    parsed = types.InlineKeyboardMarkup.read(res)
+    assert parsed.inline_keyboard[0][0].text == "Button"
+    assert parsed.inline_keyboard[0][0].callback_data == "test"
+
