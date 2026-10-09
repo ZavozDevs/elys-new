@@ -198,15 +198,29 @@ def test_legacy_reply_inline_markup_deserialization():
 
     from pyrogram import types
     from pyrogram.raw.core import TLObject
-    from pyrogram.raw.core.primitives import Int, Vector
+    from pyrogram.raw.core.primitives import Bytes, Int, String, Vector
 
-    btn_type = raw.types.InlineButtonTypeCallback(data=b"test")
-    btn = raw.types.KeyboardInlineButton(text="Button", type=btn_type)
-    row = raw.types.KeyboardInlineButtonRow(buttons=[btn])
+    # проверяем десериализацию старого replyInlineMarkup (0x48a30254)
+    # со старыми кнопками keyboardButtonUrl (0xd80c25ec) и keyboardButtonCallback (0xe62bc960)
+    btn1 = BytesIO()
+    btn1.write(Int(0xd80c25ec, False))  # keyboardButtonUrl
+    btn1.write(Int(0))  # flags (no style)
+    btn1.write(String("Link"))
+    btn1.write(String("https://example.com"))
+
+    btn2 = BytesIO()
+    btn2.write(Int(0xe62bc960, False))  # keyboardButtonCallback
+    btn2.write(Int(0))  # flags
+    btn2.write(String("Callback"))
+    btn2.write(Bytes(b"cb_data"))
+
+    row_bytes = BytesIO()
+    row_bytes.write(Int(0x77608b83, False))  # keyboardButtonRow
+    row_bytes.write(Vector([TLObject.read(BytesIO(btn1.getvalue())), TLObject.read(BytesIO(btn2.getvalue()))]))
 
     b = BytesIO()
-    b.write(Int(0x48a30254, False))
-    b.write(Vector([row]))
+    b.write(Int(0x48a30254, False))  # replyInlineMarkup
+    b.write(Vector([TLObject.read(BytesIO(row_bytes.getvalue()))]))
     b.seek(0)
 
     res = TLObject.read(b)
@@ -214,6 +228,10 @@ def test_legacy_reply_inline_markup_deserialization():
     assert len(res.rows) == 1
 
     parsed = types.InlineKeyboardMarkup.read(res)
-    assert parsed.inline_keyboard[0][0].text == "Button"
-    assert parsed.inline_keyboard[0][0].callback_data == "test"
+    assert len(parsed.inline_keyboard[0]) == 2
+    assert parsed.inline_keyboard[0][0].text == "Link"
+    assert parsed.inline_keyboard[0][0].url == "https://example.com"
+    assert parsed.inline_keyboard[0][1].text == "Callback"
+    assert parsed.inline_keyboard[0][1].callback_data == "cb_data"
+
 

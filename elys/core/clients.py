@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime
-from io import BytesIO
 from typing import Any
 
 from pyrogram import Client, raw, utils
@@ -16,32 +15,10 @@ from elys.settings import Settings
 from elys.storage.files import private_directory, protect_existing
 from elys.storage.sqlite import SafeSQLiteStorage
 
+from .compat import register_legacy_types
 from .gate import Gate, GateDispatcher
 
-
-# совместимость с tl: telegram шлёт replyInlineMarkup со старым id 0x48a30254 без flags
-class _LegacyReplyInlineMarkup(raw.core.TLObject):
-    __slots__ = ["rows"]
-    ID = 0x48a30254
-    QUALNAME = "types.ReplyInlineMarkup"
-
-    def __init__(self, *, rows: list[raw.base.KeyboardInlineButtonRow]) -> None:
-        self.rows = rows
-
-    @staticmethod
-    def read(b: BytesIO, *args: Any) -> raw.types.ReplyInlineMarkup:
-        rows = raw.core.TLObject.read(b)
-        return raw.types.ReplyInlineMarkup(rows=rows)
-
-    def write(self, *args: Any) -> bytes:
-        b = BytesIO()
-        b.write(raw.core.primitives.Int(self.ID, False))
-        b.write(raw.core.primitives.Vector(self.rows))
-        return b.getvalue()
-
-
-raw.all.objects[0x48a30254] = _LegacyReplyInlineMarkup
-raw.core.tl_object.objects[0x48a30254] = _LegacyReplyInlineMarkup
+register_legacy_types()
 
 Login = Callable[[Client], Awaitable[User]]
 
