@@ -50,6 +50,7 @@ class Host(Protocol):
     client: Client
     router: Router
     kv: KV
+    uptime: float
 
 
 class Module:

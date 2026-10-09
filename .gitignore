@@ -5,3 +5,6 @@ __pycache__/
 .ruff_cache/
 .import_linter_cache/
 data/
+.cache/
+.local/
+.reqs_installed

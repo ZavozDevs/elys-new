@@ -1,3 +1,3 @@
 # встроенные модули на публичном api.
 
-NAMES = ("welcome", "ping", "eval", "help", "modman", "configure")
+NAMES = ("welcome", "ping", "info", "eval", "help", "modman", "configure")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from contextlib import AsyncExitStack
 from importlib import import_module
+from time import perf_counter
 
 from pyrogram import idle
 
@@ -45,6 +46,11 @@ class App:
         self.forum = None
         self.inline = None
         self.loader = None
+        self.start_time = perf_counter()
+
+    @property
+    def uptime(self) -> float:
+        return perf_counter() - self.start_time
 
     async def run(self) -> None:
         settings = self.settings
