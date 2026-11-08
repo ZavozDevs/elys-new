@@ -12,33 +12,15 @@ from elys.ui.emoji import render
 
 BANNER = "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_userbot/ping_cmd.png"
 
-# Дефолтный классический дизайн Elys / Heroku:
-DEFAULT_PING_MESSAGE = (
-    "<blockquote>{e:ping} <b>Понг:</b> <code>{ping}</code> <b>𝚖𝚜</b>\n"
-    "{e:uptime} <b>𝚄𝚙𝚝𝚒𝚖𝚎:</b> <code>{uptime}</code></blockquote>"
-)
-
-FORTUNES = (
-    "Как всегда — прекрасно",
-    "Вы великолепны",
-    "Ваш пинг, как и заказывали",
-    "Пинг — скорость ответа Telegram",
-    "Приятного использования!",
-    "Спасибо, пользователь!",
-    "Круто, когда всё хорошо",
-    "Работает стабильно и шустро",
-    "Elys на связи ✨",
-)
-
 module = Module(
     "Ping",
     config=Config(
         custom_message=Config.value(
-            DEFAULT_PING_MESSAGE,
-            doc="Шаблон пинга ({ping}, {uptime}, {fortune}, {me}, {hostname})",
+            "",  # пусто — шаблон языка (ping.yml: template)
+            doc="Шаблон",
         ),
-        ping_emoji=Config.value("🌟", doc="Эмодзи или текст во время замера пинга"),
-        banner=Config.url(BANNER, doc="Картинка-баннер над ответом"),
+        ping_emoji=Config.value("🌟", doc="Эмодзи"),
+        banner=Config.url(BANNER, doc="Баннер"),
     ),
 )
 
@@ -67,13 +49,13 @@ async def ping(client: Client, message: Message) -> None:
     data = {
         "ping": f"{ping_ms:.1f}",
         "uptime": uptime_str,
-        "fortune": random.choice(FORTUNES),
+        "fortune": random.choice(module.t("fortunes").splitlines()),
         "me": me_link,
         "hostname": socket.gethostname(),
         "now_play": "",
     }
 
-    template = module.config["custom_message"] or DEFAULT_PING_MESSAGE
+    template = module.config["custom_message"] or module.t("template")
 
     # Если трек не играет / now_play пустой, убираем строку или цитату с {now_play}
     if not data["now_play"]:

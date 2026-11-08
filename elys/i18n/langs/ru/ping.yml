@@ -1,0 +1,5 @@
+"template": "<blockquote>{e:ping} <b>Понг:</b> <code>{ping}</code> <b>\U0001D696\U0001D69C</b>\n{e:uptime} <b>\U0001D684\U0001D699\U0001D69D\U0001D692\U0001D696\U0001D68E:</b> <code>{uptime}</code></blockquote>"
+"fortunes": "Как всегда — прекрасно\nВы великолепны\nВаш пинг, как и заказывали\nПинг — скорость ответа Telegram\nПриятного использования!\nСпасибо, пользователь!\nКруто, когда всё хорошо\nРаботает стабильно и шустро\nElys на связи ✨"
+"cfg.custom_message": "Шаблон"
+"cfg.ping_emoji": "Эмодзи"
+"cfg.banner": "Баннер"

@@ -7,7 +7,7 @@ import yaml
 from pyrogram.parser import Parser
 
 from elys import E, builtin, html
-from elys.i18n import translate
+from elys.i18n import catalog
 from elys.sdk.context import current
 from elys.ui.emoji import REGISTRY, render, unknown
 
@@ -16,8 +16,9 @@ def test_registry_and_every_builtin_template():
     for name, (identity, fallback) in REGISTRY.items():
         assert identity.isdecimal() and fallback, name
     strings = []
-    for path in Path("elys/i18n/locales").glob("*.yml"):
-        strings.extend(yaml.safe_load(path.read_text()).values())
+    for path in Path("elys/i18n/langs").glob("*/*.yml"):
+        if path.stem != "_meta":
+            strings.extend(yaml.safe_load(path.read_text()).values())
     for name in builtin.NAMES:
         module = import_module(f"elys.builtin.{name}").module
         for locale in module.strings.values():
@@ -26,11 +27,11 @@ def test_registry_and_every_builtin_template():
         assert not unknown(text), text
 
 
-def test_info_and_ping_templates_use_only_known_emoji():
-    from elys.builtin import info, ping
+def test_ping_templates_use_only_known_emoji():
+    from elys.i18n import BUILTIN
 
-    for text in (info.DEFAULT_INFO_MESSAGE, info.SERVINFO_TEMPLATE, ping.DEFAULT_PING_MESSAGE):
-        assert not unknown(text), unknown(text)
+    for pack in BUILTIN.glob("*/ping.yml"):
+        assert not unknown(yaml.safe_load(pack.read_text("utf-8"))["template"]), pack
 
 
 @pytest.mark.parametrize("premium", [False, True])
@@ -52,6 +53,8 @@ async def test_emoji_in_html_is_parsed_by_real_wzgram(premium):
 
 def test_template_arguments_are_escaped_and_not_rendered():
     strings = {"ru": {"status": "{e:check} {value}"}, "en": {"only": "english"}}
+    def translate(_, key, **values):
+        return catalog.t(key, sections=(), extra=strings, **values)
     assert translate(strings, "status", value="<b>{e:stop}</b>") == "✅ &lt;b&gt;{e:stop}&lt;/b&gt;"
     assert translate(strings, "only", language="xx") == "english"
     assert translate(strings, "absent") == "absent"

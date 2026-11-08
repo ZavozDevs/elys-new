@@ -198,6 +198,9 @@ class Loader:
                 for name in sorted(conflicts):
                     displaced.append(self.sources[name])
                     await self._unload(name)
+            i18n = getattr(self.app, "i18n", None)
+            if i18n is not None and path.is_dir() and (path / "langs").is_dir():
+                i18n.attach(module.name, path / "langs")
             await self.app.load(module)
             await module.ready()
             snapshot = self.directory / ".loaded" / path.name
@@ -206,6 +209,8 @@ class Loader:
         except BaseException:
             if module is not None and self.app.modules.get(module.name) is module:
                 await self.app.unload(module.name)
+            if module is not None and getattr(self.app, "i18n", None) is not None:
+                self.app.i18n.detach(module.name)
             self._forget(path)
             for previous in displaced:
                 await self._load(previous, prepared=True)
@@ -221,6 +226,8 @@ class Loader:
             await self.app.unload(name)
         finally:
             self._forget(path)
+            if getattr(self.app, "i18n", None) is not None:
+                self.app.i18n.detach(name)
         return path
 
     async def load_all(self):

@@ -1,0 +1,4 @@
+text: "🌟 <b>Elys is running!</b>\n\nA command is a normal message with a sign in front. Send <code>{p}ping</code> to check the connection.\n\n<blockquote><code>{p}help</code> — command list\n<code>{p}config</code> — settings</blockquote>\n\nCommands run only from your own messages. Other people cannot control Elys.\nReplies and menus are visible to chat members. Use this chat for private commands."
+commands: "Commands"
+settings: "Settings"
+page: "<b>Elys · commands</b>\n\n{lines}\n\nCommand details → <code>{p}help Ping</code>"

@@ -1,0 +1,5 @@
+"template": "<blockquote>{e:ping} <b>Pong:</b> <code>{ping}</code> <b>\U0001D696\U0001D69C</b>\n{e:uptime} <b>\U0001D684\U0001D699\U0001D69D\U0001D692\U0001D696\U0001D68E:</b> <code>{uptime}</code></blockquote>"
+"fortunes": "Smooth as always\nYou are awesome\nYour ping, as ordered\nPing is Telegram's response time\nEnjoy!\nThank you, user!\nNice when everything works\nStable and snappy\nElys is online ✨"
+"cfg.custom_message": "Template"
+"cfg.ping_emoji": "Emoji"
+"cfg.banner": "Banner"

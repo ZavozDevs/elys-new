@@ -148,7 +148,7 @@ async def test_core_input_via_inline_query_and_navigation(app):
     await invoke(app, ".config")
     unit = last_unit(app)
     await click(app, unit, "Настройки Elys")
-    await click(app, unit, "Начало команды")
+    await click(app, unit, "Префикс")
     q_result = SimpleNamespace(
         query=f"cfg:{unit.id}:core:prefixes ! .",
         from_user=app.client.me,

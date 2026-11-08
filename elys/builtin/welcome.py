@@ -16,16 +16,10 @@ async def greet(client: Client) -> None:
         return
     if forum.state.get("welcome"):
         return
-    p = app.router.prefixes[0]
-    text = ("🌟 <b>Elys работает!</b>\n\n"
-            "Команда — обычное сообщение со знаком в начале. Напиши " + html.code(p + "ping") +
-            " — проверить связь.\n\n<blockquote>"
-            + html.code(p + "help") + " — список команд\n" + html.code(p + "config") + " — настройки</blockquote>\n\n"
-            "Команды выполняются только из твоих сообщений. Собеседники не могут управлять Elys.\n"
-            "Ответы и меню видны участникам чата. Для личных команд используй этот чат.")
+    text = module.t("text")
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Список команд", callback_data="elys:commands", style=ButtonStyle.PRIMARY)],
-        [InlineKeyboardButton("Настройки", callback_data="elys:settings", style=ButtonStyle.SUCCESS)],
+        [InlineKeyboardButton(module.t("commands"), callback_data="elys:commands", style=ButtonStyle.PRIMARY)],
+        [InlineKeyboardButton(module.t("settings"), callback_data="elys:settings", style=ButtonStyle.SUCCESS)],
     ])
     banner = app.kv.ns("core").get("start_banner", START_BANNER)
     if banner and hasattr(app.bot, "send_photo"):
@@ -41,8 +35,7 @@ async def greet(client: Client) -> None:
 async def commands(bot, query):
     app, p = module.app, module.app.router.prefixes[0]
     lines = [html.code(p + command.name) for item in app.modules.values() for command in item.commands]
-    pages = ["<b>Elys · команды</b>\n\n" + "\n".join(lines[i:i + 25])
-             + "\n\nОписание команды → " + html.code(p + "help Ping") for i in range(0, len(lines), 25)]
+    pages = [module.t("page", lines=html.Html("\n".join(lines[i:i + 25]))) for i in range(0, len(lines), 25)]
     # Форумные сообщения отправляет бот; страницы переключаются в том же сообщении.
     async def page(bot, pressed, index):
         await app.inline.edit(pressed, pages[index], buttons(index))

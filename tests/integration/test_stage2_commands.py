@@ -68,11 +68,11 @@ async def test_help_settings_alias_and_owner_only_flow(app):
     assert app.router.get("п") is None
     await click(app, unit, "‹ Назад")
     await click(app, unit, "Язык")
-    await click(app, unit, "English")
-    assert "your account assistant" in (await invoke(app, "!help")).edits[0]
-    await click(app, unit, "‹ Назад")
-    await click(app, unit, "Картинки над ответами")
-    await click(app, unit, "Выключить")
+    await click(app, unit, "🇬🇧 English")
+    assert "Elys · commands" in (await invoke(app, "!help")).edits[0]
+    await click(app, unit, "‹ Back")  # после смены языка кнопки уже английские
+    await click(app, unit, "Banners")
+    await click(app, unit, "Turn off")
     assert app.banners_enabled is False
 
 
@@ -211,7 +211,7 @@ async def test_config_cli_and_steppers_and_inline_query(app):
     assert custom.config["count"] == 12
 
     cli_core = await invoke(app, ".config core prefixes + =")
-    assert "Начало команды" in cli_core.edits[0]
+    assert "Префикс" in cli_core.edits[0]
     assert app.router.prefixes == ("+", "=")
 
     # 2. UI меню и степперы

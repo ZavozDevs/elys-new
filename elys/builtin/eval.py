@@ -26,7 +26,7 @@ async def evaluate(client: Client, message: Message) -> None:
     # <код> — выполнить python, await можно на верхнем уровне
     source = raw_args(message)
     if not source:
-        raise UserError("Напиши код после команды, например: 2 + 2")
+        raise UserError(module.t("no_code"))
 
     out = io.StringIO()
     env = {
@@ -109,7 +109,8 @@ async def _send_file(client: Client, message: Message, code: str, mark: str, bod
         await client.send_document(
             message.chat.id,
             document,
-            caption=f'<pre language="python">{html.escape(code)}</pre>\n{mark} вывод в файле · {_size(len(data))}',
+            caption=f'<pre language="python">{html.escape(code)}</pre>\n'
+                    + module.t("in_file", mark=mark, size=_size(len(data))),
             message_thread_id=getattr(message, "message_thread_id", None),
             reply_to_message_id=getattr(message, "reply_to_message_id", None),
         )
@@ -164,7 +165,7 @@ def _split(text: str, units: int) -> list[str]:
 
 
 def _size(count: int) -> str:
-    return f"{count} Б" if count < 1024 else f"{count / 1024:.1f} КБ"
+    return module.t("bytes", n=count) if count < 1024 else module.t("kb", n=f"{count / 1024:.1f}")
 
 
 def _truncate(text: str, units: int) -> str:

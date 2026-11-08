@@ -29,7 +29,7 @@ from elys.core.loader import LoadError
 from elys.core.registry import Resources, change_handler
 from elys.core.router import Command, Router
 from elys.core.scope import Scope
-from elys.i18n import locales, translate
+from elys.i18n import catalog as default_catalog
 from elys.log import new_error_id
 from elys.storage.kv import KV, Namespace
 from elys.ui.emoji import unknown
@@ -103,9 +103,13 @@ class Module:
         return tuple(self._commands)
 
     def t(self, key: str, **values) -> str:
-        strings = self.strings if any(key in s for s in self.strings.values()) else locales()
-        return translate(strings, key, language=getattr(self.app, "language", "ru"),
-                         premium=bool(getattr(self.app, "premium", False)), **values)
+        # strings= модуля → его раздел в паках → строки ядра; язык → ru → en.
+        app = self._app
+        catalog = getattr(app, "i18n", None) or default_catalog
+        if router := getattr(app, "router", None):
+            values.setdefault("p", router.prefixes[0])
+        return catalog.t(key, language=getattr(app, "language", "ru"), premium=bool(getattr(app, "premium", False)),
+                         sections=(self.name.lower(), "core"), extra=self.strings, **values)
 
     # декораторы
 
@@ -305,7 +309,7 @@ class Module:
             try:
                 await func(client, message)
             except UserError as e:
-                await self._report(message, f"{E.stop} {html.escape(str(e))}")
+                await self._report(message, E.stop + " " + html.escape(*e.args[:1]))
             except Exception as e:
                 error_id = new_error_id()
                 self.log.exception("команда %s сломалась", _typed(message), extra={"error_id": error_id})

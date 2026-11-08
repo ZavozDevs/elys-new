@@ -16,6 +16,7 @@ from elys.core.loader import Loader
 from elys.core.registry import Registry
 from elys.core.router import GROUP as ROUTER_GROUP
 from elys.core.router import Router
+from elys.i18n import Catalog
 from elys.inline.bot import BotService
 from elys.inline.form import Inline
 from elys.inline.forum import Forum
@@ -41,6 +42,7 @@ class App:
         self.premium = False
         self.banners_enabled = True
         self.language = "ru"
+        self.i18n = Catalog(settings.data_dir / "langs")
         self.bot = None
         self.bot_service = None
         self.forum = None
@@ -64,6 +66,8 @@ class App:
             core = self.kv.ns("core")
             self.router.set_aliases(core.get("aliases", {}))
             self.language = core.get("language", "ru")
+            if self.language not in self.i18n.languages():
+                self.language = "ru"
             self.banners_enabled = core.get("banners", True)
             self.loader = Loader(self, find)
             self.client = clients.user(settings, version=__version__, login=self.login)

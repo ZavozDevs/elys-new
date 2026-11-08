@@ -95,13 +95,12 @@ async def test_disabled_module_has_executable_restore_hint(app, source, language
     assert "<code>!lm hello</code>" in response.edits[-1]
     assert "<code>!lm Hello</code>" not in response.edits[-1]
     listing = (await invoke(app, "!lm")).edits[0]
-    assert "Выключены · 1" in listing
+    assert {"ru": "Выключены · 1", "en": "Disabled · 1"}[language] in listing
     assert "<code>!lm hello</code>" in listing
     await invoke(app, "!lm hello")
     assert "Hello" in app.modules
     response = await invoke(app, "!ulm Hello --purge --yes")
-    assert "безвозвратно" in response.edits[-1]
-    assert "Файл оставлен" in response.edits[-1]
+    assert {"ru": "Файл оставлен", "en": "The file is kept"}[language] in response.edits[-1]
     assert "<code>!lm hello</code>" in response.edits[-1]
 
 
