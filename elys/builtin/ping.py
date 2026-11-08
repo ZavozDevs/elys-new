@@ -25,7 +25,7 @@ module = Module(
 )
 
 
-@module.command("ping", aliases=("p", "пинг"))
+@module.command("ping", aliases=("p", "пинг"), roles=("sudo", "support"))
 async def ping(client: Client, message: Message) -> None:
     # — задержка ответа telegram и аптайм
     start = perf_counter()

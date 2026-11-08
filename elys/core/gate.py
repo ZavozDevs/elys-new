@@ -21,12 +21,13 @@ Parser = Callable[[Any, dict, dict], Awaitable[tuple[Any, type]]]
 class Gate:
     # синхронный предикат на frozenset/dict; state меняется целиком присваиванием.
 
-    __slots__ = ("listeners", "matcher", "owner_id")
+    __slots__ = ("listeners", "matcher", "owner_id", "trusted")
 
     def __init__(self, listeners: Sized = (), owner_id: Callable[[], int | None] = lambda: None) -> None:
         self.listeners = listeners  # client.listeners: пока кто-то ждёт ответа — пропускаем всё
         self.matcher = Matcher()
         self.owner_id = owner_id  # id владельца; None, пока клиент не вошёл
+        self.trusted: frozenset[int] = frozenset()  # security.trusted_ids: люди и чаты с доступом к командам
 
     def _own(self, message: Any) -> bool:
         # «Избранное» приходит с out=False и без from_id, но чат — с самим владельцем: автор он.
@@ -45,6 +46,9 @@ class Gate:
         if peer is None:  # пустое сообщение
             return False
         chat_id, chat_type = _chat(peer, chats)
+        sender = getattr(message, "from_id", None)  # отправитель: from_id or peer_id
+        if chat_id in self.trusted or (sender is not None and _chat(sender, chats)[0] in self.trusted):
+            return True
         return self.matcher(key(chat_type, edited=edited), chat_id)
 
     def short(self, update: raw.types.UpdateShortMessage | raw.types.UpdateShortChatMessage) -> bool:
@@ -56,6 +60,10 @@ class Gate:
             chat_id, chat_type = update.user_id, PRIVATE
         else:
             chat_id, chat_type = -update.chat_id, GROUP
+            if update.from_id in self.trusted:
+                return True
+        if chat_id in self.trusted:
+            return True
         return self.matcher(key(chat_type), chat_id)
 
 

@@ -2,7 +2,8 @@
 
 import os
 import tempfile
-from pathlib import Path
+import zipfile
+from pathlib import Path, PurePosixPath
 
 
 def private_directory(path: Path) -> None:
@@ -37,3 +38,21 @@ def write_private(path: Path, text: str) -> None:
         temporary.replace(path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def backup_members(archive: zipfile.ZipFile) -> list[str]:
+    # в копии допустимы только база и файлы модулей без подкаталогов: пути вне data невозможны.
+    return [name for name in archive.namelist()
+            if name == "elys.db" or (name.endswith(".py") and str(PurePosixPath(name).parent) == "modules")]
+
+
+def restore_pending(directory: Path) -> None:
+    # .restore оставляет restore.zip; распаковка — до открытия базы, пока её никто не держит.
+    pending = directory / "restore.zip"
+    if not pending.exists():
+        return
+    with zipfile.ZipFile(pending) as archive:
+        for suffix in ("-wal", "-shm"):
+            (directory / f"elys.db{suffix}").unlink(missing_ok=True)
+        archive.extractall(directory, backup_members(archive))
+    pending.unlink()

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from elys.core.router import Command, CommandConflict, Router, parse_args
+from elys.core.security import Security
 
 
 class Owner:
@@ -14,8 +15,10 @@ class Owner:
         self.spawned.append(coro)
 
 
-def msg(text=None, *, caption=None, outgoing=True):
-    return SimpleNamespace(text=text, caption=caption, outgoing=outgoing, command=None)
+def msg(text=None, *, caption=None, outgoing=True, sender=5, chat=-10):
+    user = sender and SimpleNamespace(id=sender)
+    return SimpleNamespace(text=text, caption=caption, outgoing=outgoing, command=None,
+                           from_user=user, chat=SimpleNamespace(id=chat))
 
 
 def setup(prefixes=(".",)):
@@ -70,11 +73,19 @@ async def test_longest_prefix_wins():
     assert calls == [["ping"]]
 
 
-async def test_custom_allow():
+async def test_rules_and_ratelimit():
     router, owner, calls = setup()
-    router.allow = lambda message, command: True
-    await run(router, owner, msg(".ping", outgoing=False))
-    assert calls == [["ping"]]
+    router.security = Security({"rules": [[5, "cmd:ping", True], [-10, "mod:mod", False], [-20, "cmd:ping", True]]})
+    router.security.compile([router.get("ping")])
+    await run(router, owner, msg(".ping", outgoing=False))  # запрет чату сильнее разрешения человеку
+    await run(router, owner, msg(".ping", outgoing=False, sender=6, chat=-11))
+    assert calls == []
+    await run(router, owner, msg(".ping", outgoing=False, chat=-11))
+    await run(router, owner, msg(".ping", outgoing=False, sender=None, chat=-20))  # канал/аноним: peer_id
+    assert calls == [["ping"], ["ping"]]
+    for _ in range(10):
+        await run(router, owner, msg(".ping", outgoing=False, chat=-11))
+    assert len(calls) == 6  # лимит 5 за 10 с
 
 
 def test_conflict_is_all_or_nothing():

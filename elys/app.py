@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import signal
 from contextlib import AsyncExitStack
 from importlib import import_module
 from time import perf_counter
@@ -16,6 +18,7 @@ from elys.core.loader import Loader
 from elys.core.registry import Registry
 from elys.core.router import GROUP as ROUTER_GROUP
 from elys.core.router import Router
+from elys.core.security import Security
 from elys.i18n import Catalog
 from elys.inline.bot import BotService
 from elys.inline.form import Inline
@@ -23,7 +26,7 @@ from elys.inline.forum import Forum
 from elys.log import telegram_handler
 from elys.sdk.module import Module, find
 from elys.settings import Settings
-from elys.storage.files import private_directory
+from elys.storage.files import private_directory, restore_pending
 from elys.storage.kv import KV
 
 log = logging.getLogger(__name__)
@@ -49,6 +52,7 @@ class App:
         self.inline = None
         self.loader = None
         self.start_time = perf_counter()
+        self.restart = False  # после остановки __main__ запустит Elys заново
 
     @property
     def uptime(self) -> float:
@@ -57,13 +61,15 @@ class App:
     async def run(self) -> None:
         settings = self.settings
         private_directory(settings.data_dir)
+        restore_pending(settings.data_dir)
         # остановка — в обратном порядке: модули → клиент → kv
         async with AsyncExitStack() as stack:
             self.kv = await KV.open(settings.data_dir / "elys.db")
             stack.push_async_callback(self.kv.close)
 
-            self.router = Router(self.kv.ns("core").get("prefixes", settings.prefixes))
             core = self.kv.ns("core")
+            # правила — до старта клиента: с первого апдейта гейт знает доверенных
+            self.router = Router(core.get("prefixes", settings.prefixes), Security(self.kv.ns("security")))
             self.router.set_aliases(core.get("aliases", {}))
             self.language = core.get("language", "ru")
             if self.language not in self.i18n.languages():
@@ -71,6 +77,7 @@ class App:
             self.banners_enabled = core.get("banners", True)
             self.loader = Loader(self, find)
             self.client = clients.user(settings, version=__version__, login=self.login)
+            self.client.gate.trusted = self.router.security.trusted_ids
             # без сессии сначала мастер входа — не мешаем ему.
             if (settings.data_dir / f"{clients.SESSION}.session").exists():
                 log.info("подключаюсь к Telegram…")
@@ -121,7 +128,7 @@ class App:
             self.registry.remove(module.name)
             raise
         self.modules[module.name] = module
-        self._rebuild_gate()
+        self.rebuild()
 
     async def unload(self, name: str) -> None:
         module = self.modules.pop(name)
@@ -129,7 +136,7 @@ class App:
             await module.detach()
         finally:
             self.registry.remove(name)
-            self._rebuild_gate()
+            self.rebuild()
 
     async def unload_all(self) -> None:
         try:
@@ -140,7 +147,16 @@ class App:
             self.modules.clear()
             if self.loader is not None:
                 await self.loader.close()
-            self._rebuild_gate()
+            self.rebuild()
 
-    def _rebuild_gate(self) -> None:
-        self.client.gate.rebuild(scope for module in self.modules.values() for scope in module.scopes)
+    def reboot(self) -> None:
+        # штатная остановка (idle ловит SIGINT, база закрывается), затем __main__ делает execv
+        self.restart = True
+        os.kill(os.getpid(), signal.SIGINT)
+
+    def rebuild(self) -> None:
+        # после смены модулей или правил: области гейта и скомпилированные права.
+        modules, security = self.modules.values(), self.router.security
+        security.compile(command for module in modules for command in module.commands)
+        self.client.gate.trusted = security.trusted_ids
+        self.client.gate.rebuild(scope for module in modules for scope in module.scopes)

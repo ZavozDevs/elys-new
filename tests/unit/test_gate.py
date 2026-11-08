@@ -122,3 +122,18 @@ async def test_dispatcher_marks_own_saved_message_outgoing(monkeypatch, is_self,
     parse = dispatcher.update_parsers[T.UpdateNewMessage]
     result, _ = await parse(f.new(f.message(T.PeerUser(user_id=5), from_id=T.PeerUser(user_id=5))), {}, {})
     assert result is message and message.outgoing is outgoing
+
+
+def test_trusted_sender_and_chat_pass_closed_gate():
+    g = gate()
+    g.trusted = frozenset({5, -7})
+    assert g(f.new(f.message(T.PeerUser(user_id=5))), {})  # личка: отправитель = peer_id
+    assert g(f.new(f.message(T.PeerChat(chat_id=8), from_id=T.PeerUser(user_id=5))), {})
+    assert g(f.new(f.message(CHAT, from_id=T.PeerUser(user_id=6))), {})
+    assert not g(f.new(f.message(T.PeerUser(user_id=6))), {})
+    short = {"id": 1, "message": ".ping", "pts": 1, "pts_count": 1, "date": 0}
+    assert g.short(T.UpdateShortMessage(user_id=5, **short))
+    assert not g.short(T.UpdateShortMessage(user_id=6, **short))
+    assert g.short(T.UpdateShortChatMessage(from_id=5, chat_id=8, **short))
+    assert g.short(T.UpdateShortChatMessage(from_id=6, chat_id=7, **short))
+    assert not g.short(T.UpdateShortChatMessage(from_id=6, chat_id=8, **short))

@@ -36,6 +36,8 @@ def test_first_login_with_line_input(tmp_path, monkeypatch, capsys, configured):
     )
 
     class App:
+        restart = False
+
         def __init__(self, config, *, login):
             assert config.api_id == 42
             self.login = login
@@ -61,6 +63,8 @@ def test_closed_input_has_actionable_message(tmp_path, monkeypatch, configured):
         wizard.save_keys(tmp_path / "settings.toml", 42, "0123456789abcdef0123456789abcdef")
 
     class App:
+        restart = False
+
         def __init__(self, config, *, login):
             self.login = login
 

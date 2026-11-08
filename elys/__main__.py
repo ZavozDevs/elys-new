@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from collections.abc import Coroutine
 from typing import Any
@@ -46,12 +47,14 @@ def main(argv: list[str] | None = None) -> None:
     except KeyboardInterrupt:
         sys.exit(1)
 
+    app = None
     if args.command == "logout":
         coro = logout(config)
     else:
         from elys.app import App
 
-        coro = App(config, login=_login).run()
+        app = App(config, login=_login)
+        coro = app.run()
 
     try:
         _run(coro)
@@ -70,6 +73,8 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit("Telegram не принял api_id и api_hash. Запусти Elys ещё раз — он спросит их заново.")
     except KeyboardInterrupt:
         pass
+    if app is not None and app.restart:  # .update / .restart / .restore: тот же процесс, новый код
+        os.execv(sys.executable, [sys.executable, *sys.orig_argv[1:]])
 
 
 async def _login(client: Client) -> User:

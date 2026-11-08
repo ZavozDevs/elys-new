@@ -1,4 +1,4 @@
-# роутер команд: префикс → dict-поиск → проверка прав → задача владельца.
+# роутер команд: префикс → dict-поиск → права и лимит (для чужих) → задача владельца.
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from typing import Any, Protocol
 from pyrogram import Client
 from pyrogram.handlers import EditedMessageHandler, MessageHandler
 from pyrogram.types import Message
+
+from .ratelimit import RateLimit
+from .security import Security
 
 GROUP = -1000
 
@@ -30,7 +33,7 @@ class Command:
     callback: Callable[[Client, Message], Awaitable[Any]]
     owner: Owner
     aliases: tuple[str, ...] = ()
-    roles: frozenset[str] = frozenset()  # до security доступ всё равно только у владельца
+    roles: frozenset[str] = frozenset()  # пусто — только владелец (и те, кому открыли правилом)
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -43,18 +46,12 @@ class CommandConflict(ValueError):
         self.name, self.owner = name, owner
 
 
-Allow = Callable[[Message, Command], bool]
-
-
-def owner_only(message: Message, command: Command) -> bool:
-    return bool(message.outgoing)
-
-
 class Router:
-    def __init__(self, prefixes: Iterable[str], allow: Allow = owner_only) -> None:
+    def __init__(self, prefixes: Iterable[str], security: Security | None = None) -> None:
         self._commands: dict[str, Command] = {}
         self.aliases: dict[str, str] = {}
-        self.allow = allow
+        self.security = security or Security()
+        self.ratelimit = RateLimit()
         self.prefixes = prefixes
 
     @property
@@ -120,8 +117,14 @@ class Router:
             return
         name, *rest = body.split(None, 1)
         command = self.get(name)
-        if command is None or not self.allow(message, command):
+        if command is None:
             return
+        if not message.outgoing:
+            sender = (message.from_user or message.chat).id  # from_id or peer_id
+            if not self.security.allowed(sender, message.chat.id, command):
+                return
+            if not self.ratelimit.take(sender, command.name):
+                return
         message.command = [command.name, *parse_args(rest[0] if rest else "")]
         command.owner.spawn(command.callback(client, message))
 

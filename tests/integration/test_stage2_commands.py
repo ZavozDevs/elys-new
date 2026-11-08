@@ -13,7 +13,7 @@ from tests.integration.test_loader import source as source
 
 class Msg(SimpleNamespace):
     def __init__(self, text, *, outgoing=True):
-        super().__init__(text=text, caption=None, outgoing=outgoing, command=None,
+        super().__init__(text=text, caption=None, outgoing=outgoing, command=None, from_user=None,
                          chat=SimpleNamespace(id=99, full_name="Chat"),
                          reply_to_message=None, reply_to_message_id=None, edits=[], options=[], deleted=False)
 

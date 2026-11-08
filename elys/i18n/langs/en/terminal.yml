@@ -1,0 +1,8 @@
+"about": "Server shell commands right from Telegram."
+"screen": "{e:code} <b>Terminal</b> · <code>{code}</code>\n<blockquote><code>$ {command}</code></blockquote>\n<pre>{output}</pre>"
+"running": "running"
+"timeout": "stopped by limit"
+"no_output": "(empty)"
+"usage": "Write a command: {p}t ls. To stop it — {p}t in reply to its message."
+"cfg.timeout": "Limit, s"
+"cfg.timeout.hint": "Seconds before the command is stopped. 0 — no limit."

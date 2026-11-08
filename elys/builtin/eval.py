@@ -21,7 +21,7 @@ PAGE = 3800  # страница листалки: текст + номер стр
 PAGES = 10  # больше страниц листать неудобно — отдаём файлом
 
 
-@module.command("e", aliases=["eval"])
+@module.command("e", aliases=["eval"], roles=("sudo",))
 async def evaluate(client: Client, message: Message) -> None:
     # <код> — выполнить python, await можно на верхнем уровне
     source = raw_args(message)

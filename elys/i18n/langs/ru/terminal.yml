@@ -1,0 +1,8 @@
+"about": "Команды shell на сервере прямо из Telegram."
+"screen": "{e:code} <b>Терминал</b> · <code>{code}</code>\n<blockquote><code>$ {command}</code></blockquote>\n<pre>{output}</pre>"
+"running": "выполняется"
+"timeout": "остановлено по лимиту"
+"no_output": "(пусто)"
+"usage": "Напиши команду: {p}t ls. Чтобы остановить — {p}t в ответ на её сообщение."
+"cfg.timeout": "Лимит, с"
+"cfg.timeout.hint": "Через сколько секунд остановить команду. 0 — без лимита."

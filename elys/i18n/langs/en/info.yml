@@ -1,0 +1,4 @@
+"about": "Server and Elys: CPU, memory, disk, version, uptime."
+"screen": "{e:info} <b>Elys</b> <code>{version}</code> · <code>{commit}</code>\n<blockquote>{e:cpu} <b>CPU:</b> {cpu} · {cores} cores · load {load}\n{e:ram} <b>RAM:</b> {ram} / {ram_total} GB · Elys {rss} MB\n{e:disk} <b>Disk:</b> {disk} / {disk_total} GB\n{e:host} <b>Host:</b> {host} · {system}\n{e:uptime} <b>Uptime:</b> {uptime}\n{e:version} <b>wzgram:</b> {wzgram}</blockquote>"
+"cfg.banner": "Banner"
+"cfg.banner.hint": "Image link above the reply (https://…). Empty — no image."

@@ -322,7 +322,7 @@ async def remove_item(bot, query, data):
     await show(query, ("field", name, key, 0))
 
 
-@module.command("config")
+@module.command("config", roles=("sudo",))
 async def configure(client: Client, message: Message):
     # — настройки Elys и модулей: меню с кнопками или быстрый ввод .config <модуль> [ключ] [значение]
     query = raw_args(message).strip()

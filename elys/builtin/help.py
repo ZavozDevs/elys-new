@@ -74,7 +74,7 @@ def build_detail_rich(item, p: str) -> str:
     return "\n".join(lines)
 
 
-@module.command("help", aliases=("h",))
+@module.command("help", aliases=("h",), roles=("sudo", "support"))
 async def help_command(client: Client, message: Message):
     # — справка; пример: .help Ping
     query = raw_args(message).strip()

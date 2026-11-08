@@ -34,7 +34,7 @@ async def perform(message, operation):
     await respond(message, t("loaded", name=item.name), banner=item.banner)
 
 
-@module.command("dlm")
+@module.command("dlm", roles=("sudo",))
 async def download(client: Client, message: Message):
     # <ссылка или путь> --trust — установить модуль; можно ответить на файл .py
     args = message.command[1:]
@@ -54,7 +54,7 @@ async def download(client: Client, message: Message):
         await perform(message, module.app.loader.install(path, trusted=True))
 
 
-@module.command("lm")
+@module.command("lm", roles=("sudo",))
 async def load(client: Client, message: Message):
     # [имя файла] — список модулей или включение ранее выключенного
     args, app = message.command[1:], module.app
@@ -73,7 +73,7 @@ async def load(client: Client, message: Message):
     await respond(message, "\n\n".join([*lines, t("hints")]))
 
 
-@module.command("ulm")
+@module.command("ulm", roles=("sudo",))
 async def unload(client: Client, message: Message):
     # <модуль> [--purge --yes] — выключить; purge также стирает его настройки и данные
     args = message.command[1:]
@@ -91,14 +91,14 @@ async def unload(client: Client, message: Message):
     await respond(message, t("purged" if purge else "unloaded", name=item.name, file=source.stem))
 
 
-@module.command("reload")
+@module.command("reload", roles=("sudo",))
 async def reload_module(client: Client, message: Message):
     # <модуль> — перечитать код с диска
     need(len(message.command) == 2, "reload")
     await perform(message, module.app.loader.reload(message.command[1]))
 
 
-@module.command("rollback")
+@module.command("rollback", roles=("sudo",))
 async def rollback(client: Client, message: Message):
     # <модуль> — вернуть код предыдущей версии (данные не откатываются)
     need(len(message.command) == 2, "rollback")

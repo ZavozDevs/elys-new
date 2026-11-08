@@ -1,0 +1,6 @@
+"about": "Backup of the database and modules, and restore from it."
+"caption": "Elys backup: database and modules. Don't forward it — it holds private data. Restore: .restore in reply to the file."
+"done": "{e:check} <b>Backup ready</b>\n<blockquote>The file is in the «Backups» topic of the Elys chat.\nRestore → <code>{p}restore</code> in reply to the file.</blockquote>"
+"no_file": "Reply {p}restore to a backup file from the «Backups» topic."
+"bad_file": "This is not an Elys backup. Take the file from the «Backups» topic and retry."
+"restoring": "{e:clock} <b>Restoring</b>\n<blockquote>Elys restarts with the data from the backup.</blockquote>"

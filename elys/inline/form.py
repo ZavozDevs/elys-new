@@ -145,8 +145,10 @@ class Inline:
                    kind="form", data=None):
         if not owner.loaded:
             raise RuntimeError("модуль уже выключен")
-        unit = self.units.add(owner, kind, {"text": text, "banner": banner, **(data or {})},
-                              [self.app.client.me.id] if allowed_ids is None else allowed_ids, ttl=ttl)
+        if allowed_ids is None:  # кнопки — владельцу и тому, кто вызвал команду (sudo)
+            sender = getattr(message, "from_user", None)
+            allowed_ids = {self.app.client.me.id, *([sender.id] if sender else [])}
+        unit = self.units.add(owner, kind, {"text": text, "banner": banner, **(data or {})}, allowed_ids, ttl=ttl)
         try:
             if self._deferred(text):
                 unit.data["sent"] = asyncio.get_running_loop().create_future()
