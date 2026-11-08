@@ -27,25 +27,25 @@ async def test_config_navigation_prefix_alias_persistence_and_secrets(app):
     await invoke(app, ".config")
     unit = last_unit(app)
     # Главный экран: сверху одна кнопка, ниже два раздела модулей и «Закрыть».
-    assert [b.text for b in unit.buttons.values()] == [
-        "Настройки Elys", "Системные", "Сторонние", "Закрыть"]
-    assert [[b.text for b in row] for row in unit.data["markup"].inline_keyboard] == [
-        ["Настройки Elys"], ["Системные", "Сторонние"], ["Закрыть"]]
+    assert [b.text.split(" · ")[0] for b in unit.buttons.values()] == [
+        "Elys", "Системные", "Сторонние", "Закрыть"]
+    assert [[b.text.split(" · ")[0] for b in row] for row in unit.data["markup"].inline_keyboard] == [
+        ["Elys"], ["Системные", "Сторонние"], ["Закрыть"]]
     await click(app, unit, "Сторонние")
     assert "Назад" not in unit.data["text"] and "<Demo>" in [b.text for b in unit.buttons.values()]
     await click(app, unit, "<Demo>")
     await click(app, unit, "Секрет")
     assert "private-default" not in unit.data["text"]
-    assert "Вернуть по умолчанию" not in [b.text for b in unit.buttons.values()]
+    assert "Вернуть" not in [b.text for b in unit.buttons.values()]
     item.config["token"] = "changed"
     await click(app, unit, "‹ Назад")
-    await click(app, unit, "Секрет")
-    await click(app, unit, "Вернуть по умолчанию")
-    await click(app, unit, "Вернуть по умолчанию")
+    await click(app, unit, "Секрет •")  # • — значение изменено
+    await click(app, unit, "Вернуть")
+    await click(app, unit, "Вернуть")
     assert item.config["token"] == "private-default"
     await click(app, unit, "‹ Назад")
     await click(app, unit, "Работать")
-    await click(app, unit, "Выключить")
+    await click(app, unit, "Выкл")
     assert item.config["enabled"] is False
     await click(app, unit, "‹ Назад")
     await click(app, unit, "Цвет")
@@ -55,7 +55,7 @@ async def test_config_navigation_prefix_alias_persistence_and_secrets(app):
     assert "<Demo>" in parsed["message"]
     await app.unload(item.name)
     await click(app, unit, "‹ Назад")
-    assert "Пользовательские модули" in unit.data["text"] or "Elys · настройки" in unit.data["text"]
+    assert "<b>Сторонние</b>" in unit.data["text"] or "<b>Настройки</b>" in unit.data["text"]
     assert not app.kv.ns("cfg:<Demo>")["enabled"]
 
 
@@ -63,13 +63,13 @@ async def test_routing_rejects_other_users_stale_buttons_and_expired_units(app):
     await setup(app)
     await invoke(app, ".config")
     unit = last_unit(app)
-    denied = query_for(unit, "Настройки Elys", user_id=999)
+    denied = query_for(unit, "Elys", user_id=999)
     with pytest.raises(StopPropagation):
         await app.inline._callback(app.bot, denied)
     assert "владельцу" in denied.answer.call_args.args[0]
-    assert "Elys · настройки" in unit.data["text"]
-    stale = query_for(unit, "Настройки Elys")
-    await click(app, unit, "Настройки Elys")
+    assert "<b>Настройки</b>" in unit.data["text"]
+    stale = query_for(unit, "Elys")
+    await click(app, unit, "Elys")
     await app.inline._run(unit, stale, int(stale.data.split(":")[1]))
     assert "изменился" in stale.answer.call_args.args[0]
     unit.expires = 0
@@ -147,7 +147,7 @@ async def test_core_input_via_inline_query_and_navigation(app):
     await setup(app)
     await invoke(app, ".config")
     unit = last_unit(app)
-    await click(app, unit, "Настройки Elys")
+    await click(app, unit, "Elys")
     await click(app, unit, "Префикс")
     q_result = SimpleNamespace(
         query=f"cfg:{unit.id}:core:prefixes ! .",
@@ -161,7 +161,7 @@ async def test_core_input_via_inline_query_and_navigation(app):
     assert "Сейчас: <code>! .</code>" in unit.data["text"]
     await click(app, unit, "‹ Назад")
     await click(app, unit, "‹ Назад")
-    assert "Elys · настройки" in unit.data["text"]
+    assert "<b>Настройки</b>" in unit.data["text"]
 
 
 async def test_config_pages_and_unload_cleans_units(app):

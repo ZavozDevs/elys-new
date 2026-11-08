@@ -43,7 +43,7 @@ async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
     # Проверка формы .config
     cfg = await invoke(app, ".config")
     assert cfg.deleted
-    assert "Elys · настройки" in last_unit(app).data["text"]
+    assert "<b>Настройки</b>" in last_unit(app).data["text"]
 
     # Справка без премиума не превращается в инструкцию по установке и план разработки.
     app.premium = False

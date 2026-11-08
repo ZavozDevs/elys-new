@@ -31,7 +31,7 @@ def last_unit(app):
 
 
 def query_for(unit, text, *, user_id=1):
-    index = next(i for i, button in unit.buttons.items() if button.text == text)
+    index = next(i for i, button in unit.buttons.items() if button.text.split(" · ")[0] == text)
     return SimpleNamespace(data=f"{unit.id}:{index}", from_user=User(id=user_id),
                            inline_message_id="inline-message", answer=AsyncMock(),
                            edit_message_text=AsyncMock(), edit_message_media=AsyncMock(),

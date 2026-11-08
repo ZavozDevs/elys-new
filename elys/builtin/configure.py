@@ -8,7 +8,8 @@ from contextlib import suppress
 from pyrogram import Client
 from pyrogram.types import Message
 
-from elys import Button, Config, E, Module, UserError, html, raw_args, respond
+from elys import Button, Config, Module, UserError, html, raw_args, respond
+from elys.builtin.welcome import START_BANNER
 from elys.inline.list import nav_row
 
 module = Module("Configure")
@@ -156,44 +157,41 @@ def screen(route):
     app = module.app
     kind, *args = route
     if kind == "home":
+        count = {s: sum(bool(m.config) and scope_of(m) == s for m in app.modules.values()) for s in ("system", "user")}
         return (t("home"),
                 [[go(t("core"), ("core",), style="primary", icon="gear")],
-                 [go(t("system"), ("modules", "system", 0)), go(t("user"), ("modules", "user", 0))],
+                 [go(t(s, n=count[s]), ("modules", s, 0), icon="modules") for s in ("system", "user")],
                  [Button(t("close"), close, style="danger", icon="cross")]])
     if kind == "core":
-        text = t("core_text", prefixes=html.code(" ".join(app.router.prefixes)),
-                 lang=language_name(app, app.language), aliases=len(app.router.aliases),
-                 banners=t("on_short" if app.banners_enabled else "off_short"))
         items = [go(t(f"name.{key}"), ("core_field", key)) for key in CORE_NAMES]
-        rows = [items[i : i + 2] for i in range(0, len(items), 2)]
-        return text, [*rows, back(("home",))]
+        return t("core_text"), [*(items[i : i + 2] for i in range(0, len(items), 2)), back(("home",))]
     if kind == "core_field":
         key = args[0]
-        text = t("field_title", name=t(f"name.{key}"))
+        now = ""
         if key == "prefixes":
-            text += t("now", value=html.code(" ".join(app.router.prefixes))) + "\n" + t("prefixes_hint")
+            now = html.code(" ".join(app.router.prefixes))
             rows = [[make_token_btn(t("change"), "core", "core", "prefixes", style="primary")]]
         elif key == "start_banner":
-            current_banner = app.kv.ns("core").get("start_banner", "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_userbot/start_cmd.png")
-            text += t("now", value=shown(current_banner)) + "\n" + t("start_banner_hint")
+            now = shown(app.kv.ns("core").get("start_banner", START_BANNER))
             rows = [[make_token_btn(t("set_link"), "core", "core", "start_banner", style="primary"),
                      Button(t("remove_banner"), set_core, (key, ""))]]
         elif key == "language":
-            text += t("language_hint")
+            now = language_name(app, app.language)
             items = [Button(language_name(app, code), set_core, (key, code),
                             style="success" if app.language == code else "default")
                      for code in languages(app)]
             rows = [items[i : i + 2] for i in range(0, len(items), 2)]
         elif key == "banners":
-            text += t("now", value=shown(app.banners_enabled)) + ".\n" + t("banners_hint")
-            rows = [[Button(t("turn_off" if app.banners_enabled else "turn_on"), set_core,
-                            (key, not app.banners_enabled), style="primary")]]
+            now = shown(app.banners_enabled)
+            rows = [[Button(t(s), set_core, (key, v), style="success" if app.banners_enabled == v else "default")
+                     for s, v in (("btn_on", True), ("btn_off", False))]]
         else:
-            text += t("aliases_hint")
             items = [Button(t("remove_alias", name=name, command=cmd), remove_alias, name)
                      for name, cmd in app.router.aliases.items()]
             rows = paged(items, ("core_field", "aliases"), args[1] if len(args) > 1 else 0, cols=1)
             rows.append([make_token_btn(t("add_alias"), "core", "core", "aliases", style="primary")])
+        text = (t("field_title", name=f"Elys › {t(f'name.{key}')}") + (t("now", value=now) + "\n\n" if now else "")
+                + f"<blockquote expandable>{t(f'{key}_hint')}</blockquote>\n\n" + t("usage", module="core", field=key))
         return text, [*rows, back(("core",))]
     if kind == "modules":
         scope = args[0]
@@ -201,61 +199,54 @@ def screen(route):
             raise ValueError("неизвестный раздел модулей")
         items = sorted((m for m in app.modules.values() if m.config and is_system(m) == (scope == "system")),
                        key=lambda m: m.name.casefold())
-        title = t(f"{scope}_title")
         btns = [go(item.name, ("module", item.name, 0)) for item in items]
-        hint = t("pick_module" if items else "no_modules")
-        return (f"{E.gear} <b>{title}</b>\n\n{hint}",
+        return (t(f"{scope}_title") + ("" if items else "\n\n" + t("no_modules")),
                 [*paged(btns, ("modules", scope), args[1]), back(("home",))])
     item = target(args[0])
     if kind == "module":
-        btns = [go(label(item, key)[:45], ("field", item.name, key, 0)) for key in item.config.fields]
-        return (t("module_title", name=item.name),
+        about = item.t("about", default="")
+        # • — значение изменено; True * " •" == " •"
+        btns = [go(label(item, key)[:45] + " •" * (item.config[key] != field.default), ("field", item.name, key, 0))
+                for key, field in item.config.fields.items()]
+        return (t("module_title", name=item.name, about=html.Html(f"\n<i>{about}</i>" if about else "")),
                 [*paged(btns, ("module", item.name), args[1]), back(("modules", scope_of(item), 0))])
     key = args[1]
     field = item.config.fields[key]
     route = ("field", item.name, key, 0)
-    title = t("field_title", name=f"{item.name} · {key}")
+    title = t("field_title", name=f"{item.name} › {label(item, key)}")
     if kind == "reset":
-        text = title + t("reset_question", value=shown(field.default, secret=field.secret))
-        reset_button = Button(t("reset"), reset, (item.name, key), style="danger")
-        return text, [[reset_button], back(route)]
-    text = title + html.escape(label(item, key)) + "\n\n" + t(
-        "values", current=shown(item.config[key], secret=field.secret),
-        initial=shown(field.default, secret=field.secret))
+        return (title + t("reset_question", value=shown(field.default, secret=field.secret)),
+                [[Button(t("reset"), reset, (item.name, key), style="danger"), go(t("cancel"), route)]])
+    # необязательные ключи пака модуля: подсказка и подпись пустого значения
+    hint, empty = (item.t(f"cfg.{key}.{part}", default="") for part in ("hint", "empty"))
+    text = (title
+            + t("values", current=(item.config[key] == "" and empty) or shown(item.config[key], secret=field.secret),
+                initial=(field.default == "" and empty) or shown(field.default, secret=field.secret))
+            + (f"\n\n<blockquote expandable>{hint}</blockquote>" if hint else "")
+            + "\n\n" + t("usage", module=item.name, field=key))
     if field.choices:
         btns = [Button(t("choice", n=i + 1) if field.secret else str(v)[:50], set_field, (item.name, key, v),
                        style="success" if item.config[key] == v else "default")
                 for i, v in enumerate(field.choices)]
         rows = paged(btns, ("field", item.name, key), args[2])
     elif type(field.default) is bool:
-        rows = [[Button(t("turn_off" if item.config[key] else "turn_on"), set_field,
-                        (item.name, key, not item.config[key]), style="primary")]]
-    elif isinstance(field.default, (int, float)) and type(field.default) is not bool:
-        rows = [
-            [Button("-10", step_field, (item.name, key, -10)),
-             Button("-1", step_field, (item.name, key, -1)),
-             Button("+1", step_field, (item.name, key, 1)),
-             Button("+10", step_field, (item.name, key, 10))],
-            [make_token_btn(t("enter_number"), "set", item.name, key, style="primary")],
-        ]
+        rows = [[Button(t(s), set_field, (item.name, key, v), style="success" if item.config[key] == v else "default")
+                 for s, v in (("btn_on", True), ("btn_off", False))]]
+    elif isinstance(field.default, (int, float)):
+        rows = [[Button(f"{n:+}", step_field, (item.name, key, n)) for n in (-10, -1, 1, 10)],
+                [make_token_btn(t("enter_number"), "set", item.name, key, style="primary")]]
     elif isinstance(field.default, list):
         item_btns = [Button(str(v)[:25], remove_item, (item.name, key, v), style="danger") for v in item.config[key]]
         rows = paged(item_btns, ("field", item.name, key), args[2])
-        action_row = [make_token_btn(t("add"), "add", item.name, key, style="primary")]
-        if item.config[key]:
-            action_row.append(Button(t("clear"), set_field, (item.name, key, [])))
-        rows.append(action_row)
+        rows.append([make_token_btn(t("add"), "add", item.name, key, style="primary")]
+                    + [Button(t("clear"), set_field, (item.name, key, []))] * bool(item.config[key]))
     else:
-        action_row = [make_token_btn(t("change"), "set", item.name, key, style="primary")]
-        if type(field.default) is str and item.config[key]:
-            action_row.append(Button(t("clear"), set_field, (item.name, key, "")))
-        rows = [action_row]
-    nav = []
+        clearable = type(field.default) is str and bool(item.config[key])
+        rows = [[make_token_btn(t("change"), "set", item.name, key, style="primary")]
+                + [Button(t("clear"), set_field, (item.name, key, ""))] * clearable]
     if item.config[key] != field.default:
-        nav.append(go(t("reset"), ("reset", item.name, key)))
-    nav.extend(back(("module", item.name, 0)))
-    rows.append(nav)
-    return text, rows
+        rows.append([go(t("reset"), ("reset", item.name, key), style="danger")])
+    return text, [*rows, back(("module", item.name, 0))]
 
 
 async def show(query, route):
@@ -387,7 +378,7 @@ async def configure(client: Client, message: Message):
             apply_core(app, key, val)
         except ValueError as exc:
             raise UserError(str(exc)) from None
-        await respond(message, t("updated", name=f"Elys · {t(f'name.{key}')}", value=val))
+        await respond(message, t("updated", name=f"Elys › {t(f'name.{key}')}", value=val))
         return
 
     item = app.loader.resolve(target_name)
@@ -403,7 +394,7 @@ async def configure(client: Client, message: Message):
         raise UserError(t("apply_failed", error=exc)) from None
 
     shown_val = "••••" if field.secret else str(item.config[key])
-    await respond(message, t("updated", name=f"{item.name} · {key}", value=shown_val))
+    await respond(message, t("updated", name=f"{item.name} › {label(item, key)}", value=shown_val))
 
 
 @module.callback("elys:settings")

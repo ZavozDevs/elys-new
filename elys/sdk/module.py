@@ -316,7 +316,7 @@ class Module:
                 error = html.escape("".join(traceback.format_exception_only(e)).strip())
                 await self._report(
                     message,
-                    f"{E.stop} <b>Команда не сработала</b>\n"
+                    f"{E.error} <b>Команда не сработала</b>\n"
                     f"Это ошибка внутри модуля {html.escape(self.name)}, а не твоя. "
                     f"Подробности записаны в лог (ошибка <code>#{error_id}</code>).\n"
                     f"<blockquote expandable>{error}</blockquote>",

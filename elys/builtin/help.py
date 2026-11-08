@@ -43,7 +43,7 @@ def build_overview_rich(app, p: str) -> str:
     disabled = app.kv.ns("core").get("disabled_modules", [])
     total = t("total", n=len(app.modules)) + (t("disabled", n=len(disabled)) if disabled else "")
     return "\n".join([
-        f"<h1>{{e:logo}} {t('modules')}</h1>",
+        f"<h1>{{e:modules}} {t('modules')}</h1>",
         f"<p><b>{total}</b></p>",
         f"<details><summary>{t('builtin')}</summary>{table([m for m in items if m.name not in sources])}</details>",
         f"<details><summary>{t('installed')}</summary>{table([m for m in items if m.name in sources])}</details>",

@@ -62,7 +62,7 @@ async def test_help_settings_alias_and_owner_only_flow(app):
     assert app.kv.ns("core")["aliases"] == {"п": "ping"}
     await invoke(app, "!config")
     unit = last_unit(app)
-    await click(app, unit, "Настройки Elys")
+    await click(app, unit, "Elys")
     await click(app, unit, "Сокращения")
     await click(app, unit, "Удалить: п → ping")
     assert app.router.get("п") is None
@@ -72,7 +72,7 @@ async def test_help_settings_alias_and_owner_only_flow(app):
     assert "Elys · commands" in (await invoke(app, "!help")).edits[0]
     await click(app, unit, "‹ Back")  # после смены языка кнопки уже английские
     await click(app, unit, "Banners")
-    await click(app, unit, "Turn off")
+    await click(app, unit, "Off")
     assert app.banners_enabled is False
 
 
@@ -207,7 +207,7 @@ async def test_config_cli_and_steppers_and_inline_query(app):
 
     # 1. Быстрый CLI ввод
     cli_resp = await invoke(app, ".config Metrics count 12")
-    assert "Metrics · count" in cli_resp.edits[0]
+    assert "Metrics ›" in cli_resp.edits[0]
     assert custom.config["count"] == 12
 
     cli_core = await invoke(app, ".config core prefixes + =")

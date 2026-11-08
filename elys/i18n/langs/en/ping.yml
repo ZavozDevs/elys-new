@@ -3,3 +3,8 @@
 "cfg.custom_message": "Template"
 "cfg.ping_emoji": "Emoji"
 "cfg.banner": "Banner"
+"about": "Reply to {p}ping: Telegram latency and uptime."
+"cfg.custom_message.hint": "Reply text. Placeholders:\n<code>{ping}</code> — ping, ms\n<code>{uptime}</code> — uptime\n<code>{me}</code> — link to you\n<code>{hostname}</code> — server name\n<code>{fortune}</code> — random phrase\nHTML allowed: &lt;b&gt;, &lt;i&gt;, &lt;code&gt;, &lt;blockquote&gt;.\nExample: <code>&lt;b&gt;Pong&lt;/b&gt; {ping} ms · {uptime}</code>\nEmpty — default template."
+"cfg.ping_emoji.hint": "Shown while measuring. One emoji, premium works too."
+"cfg.banner.hint": "Link to the image above the reply (https://…). Empty — no image."
+"cfg.custom_message.empty": "default"

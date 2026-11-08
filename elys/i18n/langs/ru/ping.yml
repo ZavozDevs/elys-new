@@ -3,3 +3,8 @@
 "cfg.custom_message": "Шаблон"
 "cfg.ping_emoji": "Эмодзи"
 "cfg.banner": "Баннер"
+"about": "Ответ на {p}ping: задержка Telegram и аптайм."
+"cfg.custom_message.hint": "Текст ответа. Подстановки:\n<code>{ping}</code> — пинг, мс\n<code>{uptime}</code> — аптайм\n<code>{me}</code> — ссылка на тебя\n<code>{hostname}</code> — имя сервера\n<code>{fortune}</code> — случайная фраза\nМожно HTML: &lt;b&gt;, &lt;i&gt;, &lt;code&gt;, &lt;blockquote&gt;.\nПример: <code>&lt;b&gt;Понг&lt;/b&gt; {ping} мс · {uptime}</code>\nПусто — стандартный шаблон."
+"cfg.ping_emoji.hint": "Показывается, пока идёт замер. Один эмодзи, можно премиум."
+"cfg.banner.hint": "Ссылка на картинку над ответом (https://…). Пусто — без картинки."
+"cfg.custom_message.empty": "стандартный"

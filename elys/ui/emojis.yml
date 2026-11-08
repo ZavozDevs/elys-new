@@ -6,6 +6,18 @@
 #     aliases: ["alternative_name1", "alternative_name2"]
 
 system:
+  disabled:
+    id: "5352764805532920116"
+    fallback: "⭕"
+  error:
+    id: "5353037450056873271"
+    fallback: "💥"
+  listens_all:
+    id: "5352595661130868809"
+    fallback: "👁"
+  modules:
+    id: "5352856614753840338"
+    fallback: "🧩"
   stop:
     id: "5301008993622206313"
     fallback: "\U0001F6AB"
@@ -22,10 +34,10 @@ system:
     id: "5298736264432889807"
     fallback: "⚠️"
   cpu:
-    id: "5775887550262546277"
+    id: "5352932442401450474"
     fallback: "❗"
   info:
-    id: "5879813604068298387"
+    id: "5352553626285943425"
     fallback: "ℹ️"
   gear:
     id: "5316866957771843983"
@@ -44,10 +56,10 @@ system:
     id: '5238094680582823847'
     fallback: ▪️
   ping:
-    id: '5920515922505765329'
+    id: "5352964019001010117"
     fallback: ⚡️
   uptime:
-    id: '5900104897885376843'
+    id: "5352860063612577993"
     fallback: 🕓
   lock:
     id: '5298827674221851128'
@@ -57,15 +69,42 @@ system:
     fallback: 💥
 users:
   version:
-    id: '5931415565955503486'
+    id: "5353050944844118362"
     fallback: 🤖
   host:
-    id: '5931415565955503486'
+    id: "5352590026133775939"
     fallback: 🖥
   disk:
-    id: '5819078828017849357'
+    id: "5352535574538400771"
     fallback: 🤖
 branding:
+  elys_badge_plate:
+    id: "5255924193635118517"
+    fallback: "⭐"
+  elys_badge_solo:
+    id: "5253751786291897263"
+    fallback: "⭐"
+  elys_full_1:
+    id: "5275979380215035191"
+    fallback: "⭐"
+  elys_ko_1:
+    id: "5255791178497959401"
+    fallback: "⭐"
+  elys_ko_2:
+    id: "5253522460808094600"
+    fallback: "⭐"
+  elys_ko_3:
+    id: "5255953012865672959"
+    fallback: "⭐"
+  elys_ko_4:
+    id: "5256173769889718692"
+    fallback: "⭐"
+  elys_pill_1:
+    id: "5256047373297164926"
+    fallback: "⭐"
+  elys_pill_4:
+    id: "5255827251928278078"
+    fallback: "⭐"
   logo:
     id: "5246701816518843050"
     fallback: "⭐"
@@ -119,10 +158,10 @@ ui:
     id: "5345988476716226868"
     fallback: "\U0001F914"
   module:
-    id: '5341492148468465410'
+    id: "5352675590472249681"
     fallback: 📦
   ram:
-    id: '5931409969613116639'
+    id: "5352975490858657442"
     fallback: 🛡
   brush:
     id: '5255904299346601067'
