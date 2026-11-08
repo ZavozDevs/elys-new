@@ -29,7 +29,9 @@ async def invoke(app, text, **kwargs):
     message = Msg(text, **kwargs)
     await app.router.dispatch(app.client, message)
     if message.command:
-        await asyncio.gather(*tuple(app.router.get(message.command[0]).owner._resources.tasks))
+        owner = app.router.get(message.command[0]).owner
+        loops = {loop.task for loop in owner._loops}  # периодические задачи не завершаются
+        await asyncio.gather(*(task for task in tuple(owner._resources.tasks) if task not in loops))
     return message
 
 
@@ -114,8 +116,8 @@ async def test_update_pulls_and_restarts(app, tmp_path, monkeypatch):
 
 def db(path):
     with sqlite3.connect(path) as connection:
-        connection.execute("create table if not exists t (v)")
-        connection.execute("insert into t values (1)")
+        connection.execute("create table if not exists kv (ns text, key text, value text, primary key (ns, key))")
+        connection.execute("insert or replace into kv values ('a', 'b', '1')")
 
 
 async def test_backup_restore_and_zip_slip(app, tmp_path, monkeypatch):
@@ -162,3 +164,75 @@ async def test_restore_command_validates_and_reboots(app, tmp_path, monkeypatch)
     good = file((tmp_path / "good.zip").read_bytes())
     assert "Восстанавливаю" in (await invoke(app, ".restore", reply=good)).edits[-1]
     assert (tmp_path / "restore.zip").exists() and reboots == [1]
+
+
+async def test_remote_uses_etag(app, monkeypatch):
+    from urllib.error import HTTPError
+    sent = []
+
+    async def fake_run(*command):
+        return {"get-url": "git@github.com:ZavozDevs/Elys-new.git", "--abbrev-ref": "origin/master"}.get(command[2], "")
+
+    class Response:
+        headers = {"ETag": "W/1"}  # noqa: RUF012
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            return False
+        def read(self):
+            return b"abc123\n"
+
+    def fake_urlopen(request, timeout):
+        sent.append((request.full_url, request.get_header("If-none-match")))
+        if len(sent) > 1:
+            raise HTTPError(request.full_url, 304, "", {}, None)
+        return Response()
+
+    monkeypatch.setattr(updater, "run", fake_run)
+    monkeypatch.setattr(updater, "urlopen", fake_urlopen)
+    await load(app, "updater")
+    await updater.watch.stop()  # своя фоновая проверка не нужна в тесте
+    sent.clear()
+    app.kv.ns("updater").clear()
+    assert await updater.remote() == "abc123"
+    assert await updater.remote() == "abc123"
+    assert sent[0][0].endswith("/repos/ZavozDevs/Elys-new/commits/master")
+    assert [etag for _, etag in sent] == [None, "W/1"]
+
+
+async def test_auto_backup_only_on_change_and_rotates(app, tmp_path, monkeypatch):
+    (tmp_path / "modules").mkdir(exist_ok=True)
+    db(tmp_path / "elys.db")
+    sent, deleted = [], []
+
+    async def send_document(chat_id, archive, **kwargs):
+        sent.append((chat_id, kwargs["message_thread_id"], zipfile.ZipFile(archive).namelist()))
+        return SimpleNamespace(id=len(sent))
+
+    async def delete_messages(chat_id, message_id):
+        deleted.append(message_id)
+
+    await load(app, "backup")
+    await backup.auto.stop()
+    app.forum = SimpleNamespace(available=True, chat_id=-100, state={"topics": {"backups": 7}})
+    app.bot = SimpleNamespace(send_document=send_document, delete_messages=delete_messages)
+    backup.module.config["keep"] = 2
+    state = app.kv.ns("backup")
+
+    async def tick(changed):
+        if changed:
+            with sqlite3.connect(tmp_path / "elys.db") as connection:
+                connection.execute("insert into kv values ('a', ?, '1')", (str(len(sent)) + "x",))
+        state["last"] = 0
+        await backup.auto.callback(app.client)
+
+    await tick(False)
+    await tick(False)  # те же данные — не шлём
+    assert sent == [(-100, 7, ["elys.db"])]
+    await tick(True)
+    await tick(True)
+    assert len(sent) == 3 and deleted == [1] and state["messages"] == [[-100, 2], [-100, 3]]
+    await backup.auto.callback(app.client)  # интервал не вышел
+    app.forum.available = False
+    await tick(True)  # без форума — никуда не шлём
+    assert len(sent) == 3

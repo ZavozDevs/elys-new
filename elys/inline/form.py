@@ -220,7 +220,7 @@ class Inline:
                     return
                 await asyncio.sleep(0.1 * 2 ** attempt)
 
-    async def bot_form(self, owner, chat_id, text, buttons=(), *, ttl=86400):
+    async def bot_form(self, owner, chat_id, text, buttons=(), *, ttl=86400, thread=None):
         if not owner.loaded:
             raise RuntimeError("модуль уже выключен")
         # direct: сообщение отправляет сам бот, поэтому на кнопках работают премиум-иконки.
@@ -230,7 +230,8 @@ class Inline:
             markup = self._keyboard(unit, buttons)
             unit.data["markup"] = markup
             sent = await self.app.bot.send_message(chat_id, self._text(text), reply_markup=markup,
-                                                   parse_mode=ParseMode.HTML, disable_notification=True)
+                                                   parse_mode=ParseMode.HTML, disable_notification=True,
+                                                   message_thread_id=thread)
             unit.data["chat_id"] = chat_id
             unit.data["message_id"] = sent.id
         except BaseException:
