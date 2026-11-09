@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "юзербот для telegram на wzgram"
 requires-python = ">=3.11"
 dependencies = [
-    "wzgram[fast]==3.1.3",
+    "wzgram[fast]==3.1.6",
     "aiosqlite>=0.20",
     "qrcode>=7.4",
     "PyYAML>=6",

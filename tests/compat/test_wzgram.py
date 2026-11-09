@@ -17,7 +17,7 @@ from tests import factories as f
 
 
 def test_version_pinned():
-    assert pyrogram.__version__ == "3.1.3"
+    assert pyrogram.__version__ == "3.1.6"
     import wzgram
 
     assert wzgram is pyrogram

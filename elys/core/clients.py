@@ -89,7 +89,7 @@ class ElysClient(Client):
             offset_peer = await self.resolve_peer(last)
 
     async def handle_updates(self, updates: Any) -> Any:
-        # внутренний контракт wzgram 3.1.3 — при обновлении проверять tests/compat.
+        # внутренний контракт wzgram 3.1.6 — при обновлении проверять tests/compat.
         # wzgram на каждое короткое сообщение делает GetDifference — чужие режем до него
         if isinstance(updates, _SHORT) and not self.gate.short(updates):
             self.last_update_time = datetime.now()
@@ -114,6 +114,7 @@ def user(settings: Settings, *, version: str, login: Login | None = None) -> Ely
         storage_engine=SafeSQLiteStorage(SESSION, workdir=settings.data_dir),
         login=login,
         fetch_replies=False,  # иначе get_messages на каждый реплай в любом чате
+        max_message_cache_size=200,  # ~3 мин потока; по умолчанию 1000 = ~25 МБ на постах каналов
         fetch_topics=False,
         fetch_stories=False,
         fetch_stickers=False,

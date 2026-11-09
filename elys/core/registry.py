@@ -12,7 +12,7 @@ async def change_handler(client, handler, group: int, *, remove: bool = False):
         method = client.remove_handler if remove else client.add_handler
         method(handler, group)
         return
-    # внутренний контракт wzgram 3.1.3 проверяется tests/compat.
+    # внутренний контракт wzgram 3.1.6 проверяется tests/compat.
     async with dispatcher._barrier():
         if remove:
             dispatcher.groups[group].remove(handler)
