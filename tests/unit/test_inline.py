@@ -78,8 +78,8 @@ def test_button_requires_one_action_and_photo_public_url():
     with pytest.raises(ValueError):
         Button("bad", url="https://example.org", query="cfg ").render()
     assert Button("Открыть", url="https://example.org").render().callback_data is None
-    btn_query = Button("Инлайн", query="cfg:{unit_id}:set:Mod:key ").render("Unit1234:0")
-    assert btn_query.switch_inline_query_current_chat == "cfg:Unit1234:set:Mod:key "
+    btn_query = Button("Инлайн", query="cfg {button} ").render("Unit1234:0")
+    assert btn_query.switch_inline_query_current_chat == "cfg Unit1234:0 "
     assert btn_query.callback_data is None
     with pytest.raises(ValueError):
         Photo("file:///tmp/private.jpg")

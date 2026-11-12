@@ -28,10 +28,8 @@ class Button:
         text, icon = self.text, None
         if self.icon and direct and premium:
             icon = REGISTRY[self.icon][0]
-        query = None
-        if self.query is not None:
-            unit_id = callback_data.split(":")[0] if callback_data else ""
-            query = self.query.replace("{unit_id}", unit_id)
+        # {button} → «<форма>:<номер>»: по нему модуль находит кнопку и её data (ввод значения через бота).
+        query = None if self.query is None else self.query.replace("{button}", callback_data or "")
         return InlineKeyboardButton(
             text,
             callback_data=callback_data if self.callback else None,

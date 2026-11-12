@@ -32,7 +32,8 @@ async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
             assert "<tg-emoji" in text
             continue
         parsed = await parse(text)
-        assert any(isinstance(e, MessageEntityBlockquote) for e in parsed["entities"]), command
+        if command != ".help Ping":  # без <details> в rich нет и цитаты
+            assert any(isinstance(e, MessageEntityBlockquote) for e in parsed["entities"]), command
         assert any(isinstance(e, MessageEntityCode) for e in parsed["entities"]), command
         assert "<blockquote" not in parsed["message"]
         assert "<code>" not in parsed["message"]
@@ -49,7 +50,7 @@ async def test_builtin_screens_use_real_telegram_quotes_and_code(app, premium):
     app.premium = False
     overview = (await parse((await invoke(app, ".help")).edits[-1]))["message"]
     assert len(overview) < 550
-    assert ".dlm" in overview and ".config" in overview
+    assert "dlm" in overview and "config" in overview
     detail = (await invoke(app, ".help Ping")).edits[-1]
     assert "этап" not in detail and ".config" not in detail
 
@@ -73,7 +74,7 @@ async def test_layout_escapes_dynamic_content_and_uses_current_prefix(app):
         response = (await invoke(app, "<&" + command)).edits[0]
         assert "<Demo&>" not in response and "<Author&>" not in response
         parsed = await parse(response)
-        assert "<&" in parsed["message"]
+        assert ("<&" in parsed["message"]) is (command != "help")  # в обзоре, как в rich, имена без префикса
         assert ".help" not in parsed["message"]
     detail = (await invoke(app, "<&help <Demo&>")).edits[0]
     parsed = await parse(detail)

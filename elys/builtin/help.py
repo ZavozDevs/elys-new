@@ -3,7 +3,7 @@ import inspect
 from pyrogram import Client
 from pyrogram.types import Message
 
-from elys import Config, E, Module, UserError, html, raw_args, respond
+from elys import Config, Module, UserError, html, raw_args, respond
 
 BANNER = "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_userbot/cmd.png"
 
@@ -26,13 +26,6 @@ def explain(command):
         except (OSError, TypeError):
             doc = ""
     return (doc or module.t("no_doc")).strip().splitlines()[0].lstrip("— ")
-
-
-def describe(command, prefix):
-    doc = explain(command)
-    aliases = ", ".join(prefix + name for name in command.aliases)
-    suffix = f" ({html.escape(aliases)})" if aliases else ""
-    return f"{html.code(prefix + command.name)} — {html.escape(doc)}{suffix}"
 
 
 def build_overview_rich(app, p: str) -> str:
@@ -66,7 +59,8 @@ def build_overview_rich(app, p: str) -> str:
 
 def build_detail_rich(item, p: str) -> str:
     t = module.t
-    lines = [f"<h1>{{e:module}} <code>{html.escape(item.name)}</code> · {html.escape(item.version)}</h1>"]
+    version = f" · {html.escape(item.version)}" if item.version else ""
+    lines = [f"<h1>{{e:module}} <code>{html.escape(item.name)}</code>{version}</h1>"]
     if item.author:
         lines.append(f"<p>{t('author', author=html.b(item.author))}</p>")
     if item.commands:
@@ -97,15 +91,7 @@ async def help_command(client: Client, message: Message):
     query = raw_args(message).strip()
     app, p = module.app, module.app.router.prefixes[0]
     if not query:
-        commands = []
-        for item in app.modules.values():
-            if item.commands:
-                names = "  ".join(html.code(p + command.name) for command in item.commands)
-                commands.append(f"<b>{html.escape(item.name)}</b>\n{names}")
-        listing = "\n\n".join(commands)
-        text = f"{module.t('intro')}\n\n<blockquote>{listing}</blockquote>"
-        rich = build_overview_rich(app, p)
-        return await respond(message, text, rich_text=rich, banner=module.config["banner"])
+        return await respond(message, rich_text=build_overview_rich(app, p), banner=module.config["banner"])
 
     item = app.loader.resolve(query)
     command = app.router.get(query.removeprefix(p))
@@ -113,16 +99,4 @@ async def help_command(client: Client, message: Message):
         item = command.owner
     if item is None:
         raise UserError(module.t("not_found"))
-
-    header = f"{E['module']} {html.b(item.name)} · {html.escape(item.version)}"
-    if item.author:
-        header += "\n" + module.t("author", author=item.author)
-    descriptions = "\n".join(describe(c, p) for c in item.commands)
-    lines = [header, f"<blockquote>{descriptions or module.t('background')}</blockquote>"]
-    if "&lt;" in descriptions or "[" in descriptions:
-        lines.append(module.t("arguments"))
-    if item.listens_all:
-        lines.append(module.t("listens_all"))
-
-    rich = build_detail_rich(item, p)
-    await respond(message, "\n\n".join(lines), rich_text=rich, banner=item.banner)
+    await respond(message, rich_text=build_detail_rich(item, p), banner=item.banner)

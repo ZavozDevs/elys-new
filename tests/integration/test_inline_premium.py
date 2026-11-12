@@ -123,7 +123,7 @@ async def test_edit_retries_then_gives_up_without_losing_the_form(app, monkeypat
     with caplog.at_level(logging.ERROR):
         unit = await item.form(99, TEXT, [[Button("OK", AsyncMock())]])
     assert app.bot.edit_inline_text.await_count == 4 and unit.id in app.inline.units.items
-    assert "премиум-эмодзи" in caplog.text
+    assert "полный текст" in caplog.text
     app.bot.edit_inline_text.reset_mock(side_effect=True)
     app.bot.edit_inline_text.side_effect = MessageNotModified
     await item.form(99, TEXT, [[Button("OK", AsyncMock())]])

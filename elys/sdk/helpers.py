@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import Any
 
 from pyrogram.enums import ParseMode
@@ -10,6 +11,7 @@ from pyrogram.types import Message
 
 from elys.ui.banner import preview
 from elys.ui.emoji import render
+from elys.ui.rich import plain
 
 from .context import current
 
@@ -21,30 +23,30 @@ class UserError(Exception):
 
 async def respond(
     message: Message, text: str = "", *, rich_text: str | None = None, banner: str | None = None, **kwargs: Any
-) -> Message:
-    # своё сообщение — редактируем, чужое (sudo) — отвечаем.
+) -> Any:
+    # своё сообщение — редактируем, чужое (sudo) — отвечаем. rich_text — по режиму app.rich (§12.6);
+    # без text обычный вариант строится из rich_text.
     app = current.get()
     is_premium = bool(getattr(app, "premium", False))
-    sender = getattr(message, "from_user", None)
-    me_id = getattr(getattr(getattr(message, "_client", None), "me", None), "id", None)
-    is_own = (
-        bool(message.outgoing)
-        or (sender is not None and getattr(sender, "is_self", False))
-        or (sender is not None and me_id is not None and sender.id == me_id)
-        or (me_id is not None and getattr(getattr(message, "chat", None), "id", None) == me_id)
-    )
+    mode = getattr(app, "rich", "auto")
+    text = text or render(plain(rich_text or ""), is_premium)
+    rich_text = rich_text if mode != "off" else None
+    is_own = message.outgoing or getattr(getattr(message, "from_user", None), "is_self", False)  # «Избранное» — тоже
 
     if rich_text and is_premium:
-        rendered_rich = render(rich_text, premium=True)
-        try:
+        rendered = render(rich_text, premium=True)
+        with suppress(RPCError):  # Telegram не принял rich (RICH_MESSAGE_UNSUPPORTED и т.п.) — ниже уйдёт обычный текст
             if is_own:
-                return await message.edit_text(rich_text=rendered_rich, rich_text_parse_mode=ParseMode.HTML)
-            if hasattr(message, "reply_rich"):
-                return await message.reply_rich(rendered_rich, parse_mode=ParseMode.HTML)
-        except RPCError:
-            pass
-        except TypeError:
-            pass
+                return await message.edit_text(rich_text=rendered, rich_text_parse_mode=ParseMode.HTML)
+            return await message.reply_rich(rendered, parse_mode=ParseMode.HTML)
+
+    # без Premium rich шлёт только бот: форма вместо правки своего сообщения; модуль выгружен — обычный ответ.
+    bot = rich_text and mode == "bot" and getattr(message, "command", None) and app.inline.deferred(text, rich_text)
+    if bot and (command := app.router.get(message.command[0])):
+        unit = await app.inline.form(command.owner, message, text, [[]], banner=banner, rich=rich_text)
+        if is_own:
+            await message.delete()
+        return unit
 
     kwargs.setdefault("link_preview_options", preview(banner, getattr(app, "banners_enabled", True)))
     if is_own:

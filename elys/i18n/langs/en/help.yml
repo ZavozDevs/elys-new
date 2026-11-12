@@ -1,4 +1,3 @@
-"intro": "{e:info} <b>Elys · commands</b>\nA command is a normal message starting with <code>{p}</code>."
 "author": "Author: {author}"
 "background": "Runs in the background, no commands."
 "listens_all": "{e:listens_all} Listens to all messages — no scope restriction."

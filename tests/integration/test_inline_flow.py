@@ -10,7 +10,7 @@ from pyrogram.raw.types import MessageEntityCustomEmoji
 
 from elys import Button, Config, Module, Photo
 from elys.builtin import configure
-from tests.inline_helpers import click, last_unit, query_for
+from tests.inline_helpers import click, last_unit, query_for, type_value
 from tests.integration.test_loader import app as app
 from tests.integration.test_stage2_commands import invoke, setup
 
@@ -144,13 +144,12 @@ async def test_input_secret_via_inline_query(app):
     await invoke(app, ".config Private")
     unit = last_unit(app)
     await click(app, unit, "token")
-    q_result = SimpleNamespace(
-        query=f"cfg:{unit.id}:set:Private:token <new-secret>", from_user=app.client.me, inline_message_id="msg-secret"
-    )
-    with pytest.raises(StopPropagation):
-        await app.inline._chosen(app.bot, q_result)
+    sent = await type_value(app, unit, "Изменить", "<new-secret>")
     assert item.config["token"] == "<new-secret>"
     assert "new-secret" not in unit.data["text"]
+    sent.delete.assert_awaited_once()
+    await type_value(app, unit, "Изменить", "")  # пустое значение: форма та же, ничего не сохранено
+    assert item.config["token"] == "<new-secret>"
 
 
 async def test_core_input_via_inline_query_and_navigation(app):
@@ -159,11 +158,7 @@ async def test_core_input_via_inline_query_and_navigation(app):
     unit = last_unit(app)
     await click(app, unit, "Elys")
     await click(app, unit, "Префикс")
-    q_result = SimpleNamespace(
-        query=f"cfg:{unit.id}:core:prefixes ! .", from_user=app.client.me, inline_message_id="msg-core"
-    )
-    with pytest.raises(StopPropagation):
-        await app.inline._chosen(app.bot, q_result)
+    await type_value(app, unit, "Изменить", "! .")
     assert app.router.prefixes == ("!", ".")
     assert app.kv.ns("core")["prefixes"] == ["!", "."]
     assert "Сейчас: <code>! .</code>" in unit.data["text"]

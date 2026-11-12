@@ -205,7 +205,7 @@ MTProto updates
 
 Роутер всегда отдаёт апдейт дальше: он единственный хендлер в группе `-1000`, поэтому обычного `return` достаточно — wzgram переходит к следующей группе. Вотчеры видят и команды, как в Elys. Модуль может остановить проход сам через `StopPropagation`.
 
-Роутер слушает и отредактированные сообщения (как в Hikka): исправил опечатку в команде — она выполнится заново. Это же значит, что правка старого сообщения с командой (в том числе с другого устройства) запустит её повторно.
+Роутер слушает и отредактированные сообщения (как в Hikka): исправил опечатку в команде — она выполнится заново. Это же значит, что правка старого сообщения с командой (в том числе с другого устройства) запустит её повторно. А вот реакции, подгрузку превью и правки инлайн-ботом Telegram тоже присылает как edit, но `edit_date` не двигает (или ставит `edit_hide`) — такие гейт отбрасывает первыми, даже свои (§4.2): иначе реакция на старое `.t …` выполнила бы его снова.
 
 ### 4.2 Гейт в диспетчере (`core/gate.py`)
 
@@ -227,6 +227,7 @@ class GateDispatcher(pyrogram.dispatcher.Dispatcher):
 ```
 
 - Подключается в `ElysClient.__init__`: `self.dispatcher = GateDispatcher(self, gate)`.
+- Первая проверка для правок — `_stale`: `edit_hide` или `edit_date` старше 60 с → не правка (§4.1). Только raw-поля и `time()`, без сети; у ephemeral `edit_date` нет — их не трогаем.
 - `gate` — синхронная функция на `frozenset`/`dict`: `security.trusted_ids`, сводный `scope` всех загруженных вотчеров, `client.listeners`. Пересобирается при загрузке/выгрузке модулей и изменении правил.
 - Удаления, статусы, реакции и прочее гейт не трогает: на них просто не регистрируются хендлеры, а парсеры там дешёвые.
 - `RawUpdateHandler` (`module.on_raw_update`) видит апдейт независимо от результата парсера, но не видит короткие сообщения, отсечённые в §4.3.
@@ -383,7 +384,7 @@ async def on_refresh(bot: Client, query: CallbackQuery):
 | `@module.on_edited_message(filters=None, scope=…)` | `EditedMessageHandler` в группе модуля | `(client, message)` |
 | `@module.on_deleted_messages(filters=None)` | `DeletedMessagesHandler` | `(client, messages)` |
 | `@module.on_raw_update()` | `RawUpdateHandler` | `(client, update, users, chats)` |
-| `@module.callback(prefix)` / `@module.inline(query)` | `CallbackQueryHandler` / `InlineQueryHandler` на bot-клиенте | `(bot, query)` |
+| `@module.callback(prefix)` / `@module.inline(prefix)` / `@module.chosen(prefix)` | `CallbackQueryHandler` / `InlineQueryHandler` / `ChosenInlineResultHandler` на bot-клиенте, только от владельца; `callback_data` или текст запроса начинается с `prefix` | `(bot, update)` |
 | `@module.loop(interval, autostart=False)` | задача модуля; `refresh.start()` / `.stop()` | `(client)` |
 | `@module.on_load` / `on_ready` / `on_unload` | хуки жизненного цикла | `(client)` |
 
@@ -405,7 +406,7 @@ async def on_refresh(bot: Client, query: CallbackQuery):
 
 | Хелпер | Что делает |
 |---|---|
-| `await respond(message, text, *, banner=None, **kw)` | своё сообщение → `edit_text`, чужое (sudo) → `reply`. `banner` — URL картинки над текстом (§12.3); без него превью ссылок выключено. Медиа и прочее — нативными методами `Message` |
+| `await respond(message, text, *, rich_text=None, banner=None, **kw)` | своё сообщение → `edit_text`, чужое (sudo) → `reply`. `banner` — URL картинки над текстом (§12.3); без него превью ссылок выключено. `rich_text` — rich-вариант того же ответа, выбирается по режиму (§12.6); без `text` обычный вариант строится из `rich_text` (`elys.ui.rich.plain`). Медиа и прочее — нативными методами `Message` |
 | `raise UserError(text)` | ядро показывает `{e:stop} ` + текст через `respond`, без трейсбека и без записи в лог ошибок |
 | `E.check`, `E["check"]` | премиум-эмодзи по алиасу в Python-коде (§12.1) |
 | `await get_reply(message)` | сообщение, на которое ответили (явный запрос, т.к. `fetch_replies=False`) |
@@ -489,12 +490,13 @@ python -m elys logout     выйти из аккаунта (auth.LogOut + уда
 
 ## 10. Инлайн
 
-- Bot `Client` с `InlineQueryHandler` и `CallbackQueryHandler`. Хендлеры модулей (`@module.inline`, `@module.callback`) регистрируются на нём так же, как вотчеры на юзерботе: своя группа, запись в `registry`.
+- Bot `Client` с `InlineQueryHandler` и `CallbackQueryHandler`. Хендлеры модулей (`@module.inline`, `@module.chosen`, `@module.callback`) регистрируются на нём так же, как вотчеры на юзерботе: своя группа, запись в `registry`.
 - У бота должен быть включён inline mode. `inline/bot.py` настраивает его через внутренний HTTPS API официального Web App BotFather (§5). Если `createBot` отказывает, бот создаётся командой `/newbot` в чате с BotFather (`create_bot_in_chat`): токен берётся из ответа, вся переписка после стартовой точки стирается у обоих участников. Изменения API требуют обновления Elys; токен сохраняется до настройки inline, username — до создания, чтобы продолжить после сбоя без дубликата.
 - Юнит (форма, список, галерея) хранится в `units.py`: `id` (8 символов base62) → `{kind, data, allowed_ids, owner_module, expires}`. TTL по умолчанию 24 часа, чистка раз в минуту, при выгрузке модуля его юниты удаляются.
 - `callback_data = "<unit_id>:<button_idx>"` — укладывается в 64 байта.
 - Модуль вызывает `await module.form(message, text, buttons)`; кнопка — `Button(text, callback=func, data=...)`, где `func(bot, query, data)` — обычная функция модуля. Юзербот отправляет результат через `get_inline_bot_results` + `send_inline_bot_result`.
 - `@module.callback(prefix)` — для своих кнопок с произвольной `callback_data` мимо юнитов.
+- **Ввод значения через бота.** `Button(text, query="cfg {button} ", data=...)`: `{button}` при отрисовке становится `<unit_id>:<button_idx>`, кнопка хранится в юните вместе с `data`. Пользователь дописывает значение и выбирает подсказку → модуль ловит её `@module.inline("cfg ")` / `@module.chosen("cfg ")`, по ссылке находит свою форму и `data` кнопки — без глобальных таблиц и без поиска «последней формы». Так устроен ввод в Configure; присланное через бота «⏳» он удаляет сам (`drop_input`).
 
 ### 10.1 Личка с ботом
 
@@ -574,7 +576,7 @@ python -m elys logout     выйти из аккаунта (auth.LogOut + уда
   ```
 
 - **Без премиума премиум-эмодзи не работают нигде** (в тексте, в формах, на кнопках) — поэтому везде одна и та же замена на обычный эмодзи.
-- **Флаг премиума** — `app.premium`. Ставится при старте из `me.is_premium` и обновляется builtin-циклом раз в 30 минут (купил премиум или он кончился — без рестарта). Модули его не проверяют, это делает `render`.
+- **Флаг премиума** — `app.premium`. Ставится при старте из `me.is_premium`, дальше — без запросов и опроса: из `from_user.is_premium` каждой своей команды (`Module._guard_command`) и каждого нажатия владельца на кнопку формы (`Inline._callback`). Купил или потерял Premium — следующая команда уже это учитывает. Модули его не проверяют, это делает `render`.
 - **Где рендерится токен:**
   - `module.t(key, **kw)` и i18n ядра: сначала `render` шаблона, потом `.format(**kw)`. Поэтому `{e:…}` в аргументах (текст от пользователя) в эмодзи не превращается.
   - `E.check` / `html.emoji(id, fallback)` — сразу готовый HTML.
@@ -658,6 +660,19 @@ def preview(url: str | None, enabled: bool) -> LinkPreviewOptions:
   - Как любой премиум-эмодзи, нужен Premium владельца (`app.premium`).
   - `Button.render(direct=…)`: `direct` = сообщение отправил сам бот (`unit.data["direct"]`, ставит `bot_form`, сохраняется при `edit`). Там, где иконка невозможна (inline-сообщение, нет Premium), перед текстом кнопки ставится обычный fallback-эмодзи из реестра. Модуль просто пишет `icon=`.
 
+### 12.6 Rich-ответы
+
+Rich (таблицы, заголовки, `<details>`) пользователь может отправить только с Premium (`RICH_MESSAGE_UNSUPPORTED`), бот — всегда. Поэтому rich — надстройка: модуль пишет один rich-шаблон, обычный вариант `respond` строит сам через `plain()` (`elys/ui/rich.py`: заголовки → `<b>`, таблица → `<blockquote expandable>` со строками «a — b», `<details>` → жирный заголовок и содержимое); свой `text` — только если нужен другой. Формам `text` нужен всегда, `rich=` — по желанию. Режим — `core/rich` (`app.rich`), экран «Rich-ответы» в `.config`:
+
+| Режим | `respond` с Premium | `respond` без Premium | `form` / `edit` / `bot_form` |
+|---|---|---|---|
+| `auto` (по умолчанию) | правка своего сообщения rich | обычный текст | rich |
+| `bot` | правка своего сообщения rich | своё сообщение удаляется, rich-форма через бота | rich |
+| `off` | обычный текст | обычный текст | обычный текст |
+
+- В inline-результат rich не положить — работает тот же механизм заглушки, что и для премиум-эмодзи (§12.5): `Inline.deferred` срабатывает и на rich, бот правит заглушку через `edit_inline_text(rich_text=…)`. Без Inline Feedback rich в формах и режим `bot` недоступны — уходит обычный текст.
+- `bot_form` отправляет rich сам (`send_message(rich_text=…)`), `edit` / `edit_unit` правят им же; передавай `rich=` при каждой правке — иначе экран станет обычным.
+
 ---
 
 ## 13. Понятность для новичка
@@ -710,5 +725,5 @@ def preview(url: str | None, enabled: bool) -> LinkPreviewOptions:
 - **Подписи настроек:** `cfg.<поле>` в разделе модуля; нет ключа — `doc` из `Config`
   (`t(..., default=doc)` возвращает его как есть и не пишет в лог). Сторонние модули без паков
   работают как раньше.
-- **Не переведено (пока):** сообщения ядра (`LoadError`, валидаторы `Config`), `inline/form.py`, логи
+- **Не переведено (пока):** сообщения ядра (`LoadError`, валидаторы `Config`), логи. Ответы форм (`form.*`) — в разделе `core`
   (логи остаются на русском намеренно).

@@ -8,7 +8,7 @@ from contextlib import suppress
 from pyrogram import StopPropagation, filters
 from pyrogram.enums import ParseMode
 from pyrogram.errors import MessageNotModified, QueryIdInvalid, RPCError
-from pyrogram.handlers import CallbackQueryHandler, ChosenInlineResultHandler, InlineQueryHandler, MessageHandler
+from pyrogram.handlers import CallbackQueryHandler, ChosenInlineResultHandler, InlineQueryHandler
 from pyrogram.raw.types import (
     Updates,
     UpdatesCombined,
@@ -25,6 +25,7 @@ from pyrogram.types import (
 )
 
 from elys.core.registry import change_handler
+from elys.i18n import catalog
 from elys.ui.banner import preview
 from elys.ui.emoji import PLACEHOLDER, render
 
@@ -60,16 +61,13 @@ class Inline:
 
     async def start(self):
         async def unit_query(_, client, query):
-            q = query.query
-            return q.startswith("elys:") or q.startswith("cfg ") or q.startswith("cfg:")
+            return query.query.startswith("elys:")
 
         async def unit_callback(_, client, query):
             return isinstance(query.data, str) and bool(_CALLBACK.fullmatch(query.data))
 
         async def unit_chosen(_, client, result):
-            rid = getattr(result, "result_id", None)
-            q = getattr(result, "query", "") or ""
-            return self.units.get(rid) is not None or q.startswith("cfg ") or q.startswith("cfg:")
+            return self.units.get(getattr(result, "result_id", None)) is not None
 
         handlers = [
             InlineQueryHandler(self._query, filters.create(unit_query)),
@@ -79,30 +77,9 @@ class Inline:
         for handler in handlers:
             await change_handler(self.app.bot, handler, GROUP)
             self._handlers.append(handler)
-
-        async def is_ephemeral(_, client, message):
-            via = getattr(message, "via_bot", None)
-            bot_me = getattr(getattr(self.app, "bot", None), "me", None)
-            return bool(
-                getattr(message, "outgoing", False)
-                and via
-                and bot_me
-                and getattr(via, "id", None) == getattr(bot_me, "id", None)
-                and (message.text or message.caption)
-                and "Применяю" in (message.text or message.caption)
-            )
-
-        async def delete_ephemeral(client, message):
-            with suppress(Exception):
-                await message.delete()
-
-        self._ephemeral_handler = MessageHandler(delete_ephemeral, filters.create(is_ephemeral))
-        await change_handler(self.app.client, self._ephemeral_handler, -998)
         self._cleaner = asyncio.create_task(self.units.clean())
 
     async def close(self):
-        if hasattr(self, "_ephemeral_handler"):
-            await change_handler(self.app.client, self._ephemeral_handler, -998, remove=True)
         if self._cleaner:
             self._cleaner.cancel()
             with suppress(asyncio.CancelledError):
@@ -122,7 +99,7 @@ class Inline:
                 rendered.append(
                     button.render(f"{unit.id}:{index}", premium=self.app.premium, direct=unit.data.get("direct", False))
                 )
-                if button.callback:
+                if button.callback or button.query is not None:
                     buttons[index] = button
             if rendered:
                 keyboard.append(rendered)
@@ -132,28 +109,50 @@ class Inline:
     def _text(self, text):
         return render(text, self.app.premium)
 
-    def _deferred(self, text):
-        # Премиум-эмодзи нельзя отправить в inline-результате: отправляем заглушку, затем правим.
+    def _t(self, key):
+        app = self.app
+        return (getattr(app, "i18n", None) or catalog).t(f"form.{key}", language=getattr(app, "language", "ru"))
+
+    def _rich(self, rich):
+        # rich заменяет текст целиком; бот шлёт его и без Premium. Режим «off» — только обычный текст.
+        if not rich or self.app.rich == "off":
+            return {}
+        return {"rich_text": self._text(rich), "rich_text_parse_mode": ParseMode.HTML}
+
+    def deferred(self, text, rich=None):
+        # Ни премиум-эмодзи, ни rich нельзя отправить в inline-результате: отправляем заглушку, затем бот правит.
         # Нужен Inline Feedback (флаг bot_feedback ставит BotService), иначе inline_message_id не узнать.
         core = self.app.kv.ns("core")
         return bool(
-            self.app.premium
-            and core.get("bot_feedback")
+            core.get("bot_feedback")
             and core.get("bot_feedback") == core.get("bot_token")
-            and "<tg-emoji" in self._text(text)
+            and (self._rich(rich) or (self.app.premium and "<tg-emoji" in self._text(text)))
         )
 
     async def form(
-        self, owner, message, text, buttons=(), *, banner=None, allowed_ids=None, ttl=86400, kind="form", data=None
+        self,
+        owner,
+        message,
+        text,
+        buttons=(),
+        *,
+        banner=None,
+        rich=None,
+        allowed_ids=None,
+        ttl=86400,
+        kind="form",
+        data=None,
     ):
         if not owner.loaded:
             raise RuntimeError("модуль уже выключен")
         if allowed_ids is None:  # кнопки — владельцу и тому, кто вызвал команду (sudo)
             sender = getattr(message, "from_user", None)
             allowed_ids = {self.app.client.me.id, *([sender.id] if sender else [])}
-        unit = self.units.add(owner, kind, {"text": text, "banner": banner, **(data or {})}, allowed_ids, ttl=ttl)
+        unit = self.units.add(
+            owner, kind, {"text": text, "rich": rich, "banner": banner, **(data or {})}, allowed_ids, ttl=ttl
+        )
         try:
-            if self._deferred(text):
+            if self.deferred(text, rich):
                 unit.data["sent"] = asyncio.get_running_loop().create_future()
             rows = list(buttons) or [[close_button(self._dismiss)]]
             unit.data["markup"] = self._keyboard(unit, rows)
@@ -176,12 +175,6 @@ class Inline:
             raise
 
     async def _chosen(self, bot, result):
-        q = getattr(result, "query", "") or ""
-        if q.startswith("cfg ") or q.startswith("cfg:"):
-            from_user = getattr(result, "from_user", None)
-            if from_user and from_user.id == self.app.client.me.id:
-                await self._chosen_cfg(result)
-            raise StopPropagation
         unit = self.units.get(getattr(result, "result_id", None))
         if unit:
             if getattr(result, "inline_message_id", None):
@@ -198,7 +191,7 @@ class Inline:
             inline_id = await asyncio.wait_for(unit.data["sent"], 10)
         except TimeoutError:
             log.warning(
-                "Telegram не сообщил о выбранной форме, премиум-эмодзи не показаны. "
+                "Telegram не сообщил о выбранной форме, полный текст не показан. "
                 "Проверь Inline Feedback бота в @BotFather."
             )
             return
@@ -219,6 +212,7 @@ class Inline:
                         self._text(unit.data["text"]),
                         parse_mode=ParseMode.HTML,
                         reply_markup=unit.data["markup"],
+                        **self._rich(unit.data.get("rich")),
                         link_preview_options=preview(unit.data["banner"], self.app.banners_enabled),
                     )
                 return
@@ -226,16 +220,20 @@ class Inline:
                 return
             except RPCError:
                 if attempt == 3:
-                    log.exception("Не удалось показать премиум-эмодзи в форме")
+                    log.exception("Не удалось показать полный текст формы")
                     return
                 await asyncio.sleep(0.1 * 2**attempt)
 
-    async def bot_form(self, owner, chat_id, text, buttons=(), *, ttl=86400, thread=None):
+    async def bot_form(self, owner, chat_id, text, buttons=(), *, rich=None, ttl=86400, thread=None):
         if not owner.loaded:
             raise RuntimeError("модуль уже выключен")
         # direct: сообщение отправляет сам бот, поэтому на кнопках работают премиум-иконки.
         unit = self.units.add(
-            owner, "form", {"text": text, "banner": None, "direct": True}, [self.app.client.me.id], ttl=ttl
+            owner,
+            "form",
+            {"text": text, "rich": rich, "banner": None, "direct": True},
+            [self.app.client.me.id],
+            ttl=ttl,
         )
         try:
             markup = self._keyboard(unit, buttons)
@@ -247,6 +245,7 @@ class Inline:
                 parse_mode=ParseMode.HTML,
                 disable_notification=True,
                 message_thread_id=thread,
+                **self._rich(rich),
             )
             unit.data["chat_id"] = chat_id
             unit.data["message_id"] = sent.id
@@ -255,139 +254,8 @@ class Inline:
             raise
         return unit
 
-    def _parse_cfg_query(self, text: str):
-        if text.startswith("cfg ") or text.startswith("cfg:"):
-            raw = text[4:].strip()
-        else:
-            return None
-
-        parts = raw.split(" ", 1)
-        target_spec = parts[0].strip()
-        val = parts[1].strip() if len(parts) > 1 else ""
-
-        from elys.builtin.configure import _input_tokens
-
-        if target_spec in _input_tokens:
-            action, mod_name, key = _input_tokens[target_spec]
-            return None, action, mod_name, key, val
-
-        if ":" in target_spec:
-            tokens = target_spec.split(":")
-            if len(tokens) >= 3 and tokens[1] == "core":
-                return tokens[0], "core", "core", tokens[2], val
-            if len(tokens) >= 4 and tokens[1] in {"set", "add"}:
-                return tokens[0], tokens[1], tokens[2], tokens[3], val
-
-        action = "add" if target_spec.startswith("+") else "set"
-        clean = target_spec.lstrip("+")
-        unit_id = None
-
-        if "." in clean:
-            mod_name, key = clean.split(".", 1)
-        elif ":" in clean:
-            mod_name, key = clean.split(":", 1)
-        elif clean in {"prefixes", "language", "banners", "aliases", "start_banner"}:
-            mod_name, key = "core", clean
-        else:
-            mod_name, key = "", clean
-            for m in self.app.modules.values():
-                if m.config and clean in m.config.fields:
-                    mod_name = m.name
-                    break
-
-        return unit_id, action, mod_name, key, val
-
-    async def _query_cfg(self, query):
-        if not query.from_user or query.from_user.id != self.app.client.me.id:
-            await query.answer([], cache_time=0, is_personal=True)
-            return
-
-        parsed = self._parse_cfg_query(query.query or "")
-        if not parsed:
-            await query.answer([], cache_time=0, is_personal=True)
-            return
-
-        _unit_id, action, mod_name, key, val = parsed
-        label = f"{mod_name} · {key}" if mod_name and mod_name != "core" else key
-
-        if val:
-            act_text = "Добавить" if action == "add" else "Сохранить"
-            title = f"{act_text}: {val}"
-            desc = f"{label} · Нажми для сохранения"
-            msg_text = f"🔄 <i>Применяю {label}...</i>"
-        else:
-            title = f"Введи значение для {label}..."
-            desc = "Напиши значение после пробела"
-            msg_text = "ℹ️ Новое значение не указано"
-
-        result = InlineQueryResultArticle(
-            title=title,
-            description=desc,
-            id=f"cfg:{key}",
-            input_message_content=InputTextMessageContent(msg_text, parse_mode=ParseMode.HTML),
-        )
-        await query.answer([result], cache_time=0, is_personal=True)
-
-    async def _chosen_cfg(self, result):
-        parsed = self._parse_cfg_query(getattr(result, "query", "") or "")
-        if not parsed:
-            return
-
-        unit_id, action, mod_name, key, val = parsed
-        if not val:
-            if getattr(result, "inline_message_id", None):
-                with suppress(Exception):
-                    await self.app.bot.edit_inline_text(result.inline_message_id, "❌ Значение не было указано.")
-            return
-
-        try:
-            from elys.builtin.configure import apply_core, parse_item, parse_value, screen, target
-
-            route = None
-            if mod_name == "core":
-                apply_core(self.app, key, val)
-                route = ("core_field", key)
-            elif mod_name:
-                item = target(mod_name)
-                field = item.config.fields[key]
-                if action == "add":
-                    curr = list(item.config[key])
-                    curr.append(parse_item(field, val))
-                    item.config[key] = curr
-                else:
-                    item.config[key] = parse_value(field, val)
-                route = ("field", mod_name, key, 0)
-            else:
-                return
-
-            unit = (
-                self.units.get(unit_id)
-                if unit_id
-                else next((u for u in reversed(self.units.items.values()) if u.owner_module.name == "Configure"), None)
-            )
-            if unit and route:
-                text, rows = screen(route)
-                await self.edit_unit(unit, text, rows)
-        except (ValueError, TypeError) as exc:
-            log.warning("Некорректное значение для настройки %s.%s: %s", mod_name, key, exc)
-            unit = (
-                self.units.get(unit_id)
-                if unit_id
-                else next((u for u in reversed(self.units.items.values()) if u.owner_module.name == "Configure"), None)
-            )
-            if unit and route:
-                with suppress(Exception):
-                    cur_text, cur_rows = screen(route)
-                    await self.edit_unit(unit, f"⚠️ <b>Значение не подходит:</b> {exc}\n\n" + cur_text, cur_rows)
-        except Exception:
-            log.exception("Не удалось применить настройку через inline query")
-
     async def _query(self, bot, query):
-        q = query.query or ""
-        if q.startswith("cfg ") or q.startswith("cfg:"):
-            await self._query_cfg(query)
-            raise StopPropagation
-        unit = self.units.get(q.removeprefix("elys:"))
+        unit = self.units.get((query.query or "").removeprefix("elys:"))
         results = []
         # Выдача форм только владельцу. allowed_ids разрешает нажатия, не получение формы.
         if unit and query.from_user and query.from_user.id == self.app.client.me.id:
@@ -417,12 +285,14 @@ class Inline:
         match = _CALLBACK.fullmatch(query.data)
         unit = self.units.get(match[1])
         if not unit:
-            await query.answer("Эта форма закрыта или устарела. Открой её командой ещё раз.", show_alert=True)
+            await query.answer(self._t("gone"), show_alert=True)
         elif not query.from_user or query.from_user.id not in unit.allowed_ids:
-            await query.answer("Эта кнопка доступна только владельцу формы.", show_alert=True)
+            await query.answer(self._t("owner"), show_alert=True)
         else:
             if getattr(query, "inline_message_id", None):
                 unit.data["inline_message_id"] = query.inline_message_id
+            if query.from_user.id == self.app.client.me.id and isinstance(query.from_user.is_premium, bool):
+                self.app.premium = query.from_user.is_premium  # нажатие владельца тоже несёт Premium
             # Не удерживаем воркер диспетчера: callback может выгрузить модуль.
             unit.owner_module.spawn(self._run(unit, query, int(match[2])))
         raise StopPropagation
@@ -430,7 +300,7 @@ class Inline:
     async def _run(self, unit, query, index):
         async with unit.lock:
             if self.units.get(unit.id) is not unit or index not in unit.buttons:
-                await query.answer("Экран уже изменился. Нажми кнопку на новом экране.")
+                await query.answer(self._t("changed"))
                 return
             button = unit.buttons[index]
             try:
@@ -442,16 +312,13 @@ class Inline:
             except Exception:
                 log.exception("Не сработала кнопка модуля %s", unit.owner_module.name)
                 with suppress(QueryIdInvalid):
-                    await query.answer(
-                        "Кнопка не сработала. Подробности — в теме «Ошибки». Попробуй открыть форму снова.",
-                        show_alert=True,
-                    )
+                    await query.answer(self._t("failed"), show_alert=True)
 
     def from_query(self, query):
         match = _CALLBACK.fullmatch(query.data or "")
         return self.units.get(match[1]) if match else None
 
-    async def edit_unit(self, unit, text, buttons=(), *, banner=None):
+    async def edit_unit(self, unit, text, buttons=(), *, banner=None, rich=None):
         if not unit:
             return
         old_buttons = unit.buttons
@@ -463,6 +330,7 @@ class Inline:
                     self._text(text),
                     parse_mode=ParseMode.HTML,
                     reply_markup=markup,
+                    **self._rich(rich),
                     link_preview_options=preview(banner, self.app.banners_enabled),
                 )
             elif unit.data.get("chat_id") and unit.data.get("message_id"):
@@ -472,6 +340,7 @@ class Inline:
                     self._text(text),
                     parse_mode=ParseMode.HTML,
                     reply_markup=markup,
+                    **self._rich(rich),
                     link_preview_options=preview(banner, self.app.banners_enabled),
                 )
         except MessageNotModified:
@@ -479,11 +348,11 @@ class Inline:
         except BaseException:
             unit.buttons = old_buttons
             raise
-        unit.data.update(text=text, markup=markup, banner=banner)
+        unit.data.update(text=text, rich=rich, markup=markup, banner=banner)
 
-    async def edit(self, target, text, buttons=(), *, banner=None):
+    async def edit(self, target, text, buttons=(), *, banner=None, rich=None):
         if hasattr(target, "owner_module"):
-            return await self.edit_unit(target, text, buttons, banner=banner)
+            return await self.edit_unit(target, text, buttons, banner=banner, rich=rich)
         unit = self.from_query(target)
         if not unit:
             return
@@ -497,13 +366,14 @@ class Inline:
                 parse_mode=ParseMode.HTML,
                 reply_markup=markup,
                 link_preview_options=preview(banner, self.app.banners_enabled),
+                **self._rich(rich),
             )
         except MessageNotModified:
             pass
         except BaseException:
             unit.buttons = old_buttons
             raise
-        unit.data.update(text=text, markup=markup, banner=banner)
+        unit.data.update(text=text, rich=rich, markup=markup, banner=banner)
 
     async def _dismiss(self, bot, query, data):
         unit = self.from_query(query)
@@ -520,9 +390,9 @@ class Inline:
                     deleted = True
             if not deleted:
                 if unit.kind == "gallery":
-                    await query.edit_message_caption("Галерея закрыта.", reply_markup=None)
+                    await query.edit_message_caption(self._t("gallery_closed"), reply_markup=None)
                 else:
-                    await self.edit(query, "Меню закрыто. Чтобы открыть его снова, повтори команду.")
+                    await self.edit(query, self._t("closed"))
             self.units.remove(unit.id)
 
     async def listing(self, owner, message, pages, **kwargs):

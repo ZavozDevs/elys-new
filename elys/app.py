@@ -44,6 +44,7 @@ class App:
         self.registry = Registry()
         self.premium = False
         self.banners_enabled = True
+        self.rich = "auto"  # auto / bot / off — §12.6
         self.language = "ru"
         self.i18n = Catalog(settings.data_dir / "langs")
         self.bot = None
@@ -75,6 +76,7 @@ class App:
             if self.language not in self.i18n.languages():
                 self.language = "ru"
             self.banners_enabled = core.get("banners", True)
+            self.rich = core.get("rich", "auto")
             self.loader = Loader(self, find)
             self.client = clients.user(settings, version=__version__, login=self.login)
             self.client.gate.trusted = self.router.security.trusted_ids

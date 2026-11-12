@@ -1,31 +1,25 @@
 from __future__ import annotations
 
 import json
-import secrets
-import string
 from contextlib import suppress
 
 from pyrogram import Client
-from pyrogram.types import Message
+from pyrogram.errors import RPCError
+from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, Message
 
 from elys import Button, Config, Module, UserError, html, raw_args, respond
 from elys.builtin.welcome import START_BANNER
 from elys.inline.list import nav_row
 
 module = Module("Configure")
-_TOKENS = string.ascii_letters + string.digits
-_input_tokens: dict[str, tuple[str, str, str]] = {}
 t = module.t
-CORE_NAMES = ("prefixes", "language", "banners", "aliases", "start_banner")  # подпись — t(f"name.{key}")
+CORE_NAMES = ("prefixes", "language", "banners", "rich", "aliases", "start_banner")  # подпись — t(f"name.{key}")
+RICH_MODES = ("auto", "bot", "off")
 
 
-def make_token_btn(text: str, action: str, mod: str, key: str, **kwargs) -> Button:
-    if len(_input_tokens) > 200:
-        for old in list(_input_tokens)[:50]:
-            _input_tokens.pop(old, None)
-    token = "".join(secrets.choice(_TOKENS) for _ in range(5))
-    _input_tokens[token] = (action, mod, key)
-    return Button(text, query=f"cfg {token} ", **kwargs)
+def input_btn(text: str, action: str, name: str, key: str, **kwargs) -> Button:
+    # ввод значения: «@бот cfg <форма>:<кнопка> значение»; что меняем — в data самой кнопки
+    return Button(text, query="cfg {button} ", data=(action, name, key), **kwargs)
 
 
 def languages(app) -> dict[str, dict]:
@@ -60,6 +54,10 @@ def apply_core(app, key, value):
         if type(value) is not bool:
             raise ValueError(t("err.banners"))
         app.banners_enabled = core[key] = value
+    elif key == "rich":
+        if value not in RICH_MODES:
+            raise ValueError(t("err.rich"))
+        app.rich = core[key] = value
     elif key == "start_banner":
         core[key] = Config.url().validate(value.strip())
     elif key == "aliases":
@@ -122,6 +120,10 @@ def label(item, key):
     return item.t(f"cfg.{key}", default=item.config.fields[key].doc or key)
 
 
+def field_name(name, key):
+    return f"Elys › {t(f'name.{key}')}" if name == "core" else f"{name} › {label(target(name), key)}"
+
+
 def go(text, route, **kwargs):
     return Button(text, navigate, route, **kwargs)
 
@@ -177,12 +179,12 @@ def screen(route):
         now = ""
         if key == "prefixes":
             now = html.code(" ".join(app.router.prefixes))
-            rows = [[make_token_btn(t("change"), "core", "core", "prefixes", style="primary")]]
+            rows = [[input_btn(t("change"), "core", "core", "prefixes", style="primary")]]
         elif key == "start_banner":
             now = shown(app.kv.ns("core").get("start_banner", START_BANNER))
             rows = [
                 [
-                    make_token_btn(t("set_link"), "core", "core", "start_banner", style="primary"),
+                    input_btn(t("set_link"), "core", "core", "start_banner", style="primary"),
                     Button(t("remove_banner"), set_core, (key, "")),
                 ]
             ]
@@ -206,15 +208,23 @@ def screen(route):
                     for s, v in (("btn_on", True), ("btn_off", False))
                 ]
             ]
+        elif key == "rich":
+            now = t(f"rich.{app.rich}")
+            rows = [
+                [
+                    Button(t(f"rich.{m}"), set_core, (key, m), style="success" if app.rich == m else "default")
+                    for m in RICH_MODES
+                ]
+            ]
         else:
             items = [
                 Button(t("remove_alias", name=name, command=cmd), remove_alias, name)
                 for name, cmd in app.router.aliases.items()
             ]
             rows = paged(items, ("core_field", "aliases"), args[1] if len(args) > 1 else 0, cols=1)
-            rows.append([make_token_btn(t("add_alias"), "core", "core", "aliases", style="primary")])
+            rows.append([input_btn(t("add_alias"), "core", "core", "aliases", style="primary")])
         text = (
-            t("field_title", name=f"Elys › {t(f'name.{key}')}")
+            t("field_title", name=field_name("core", key))
             + (t("now", value=now) + "\n\n" if now else "")
             + f"<blockquote expandable>{t(f'{key}_hint')}</blockquote>\n\n"
             + t("usage", module="core", field=key)
@@ -248,7 +258,7 @@ def screen(route):
     key = args[1]
     field = item.config.fields[key]
     route = ("field", item.name, key, 0)
-    title = t("field_title", name=f"{item.name} › {label(item, key)}")
+    title = t("field_title", name=field_name(item.name, key))
     if kind == "reset":
         return (
             title + t("reset_question", value=shown(field.default, secret=field.secret)),
@@ -288,19 +298,19 @@ def screen(route):
     elif isinstance(field.default, (int, float)):
         rows = [
             [Button(f"{n:+}", step_field, (item.name, key, n)) for n in (-10, -1, 1, 10)],
-            [make_token_btn(t("enter_number"), "set", item.name, key, style="primary")],
+            [input_btn(t("enter_number"), "set", item.name, key, style="primary")],
         ]
     elif isinstance(field.default, list):
         item_btns = [Button(str(v)[:25], remove_item, (item.name, key, v), style="danger") for v in item.config[key]]
         rows = paged(item_btns, ("field", item.name, key), args[2])
         rows.append(
-            [make_token_btn(t("add"), "add", item.name, key, style="primary")]
+            [input_btn(t("add"), "add", item.name, key, style="primary")]
             + [Button(t("clear"), set_field, (item.name, key, []))] * bool(item.config[key])
         )
     else:
         clearable = type(field.default) is str and bool(item.config[key])
         rows = [
-            [make_token_btn(t("change"), "set", item.name, key, style="primary")]
+            [input_btn(t("change"), "set", item.name, key, style="primary")]
             + [Button(t("clear"), set_field, (item.name, key, ""))] * clearable
         ]
     if item.config[key] != field.default:
@@ -381,6 +391,65 @@ async def remove_item(bot, query, data):
     await show(query, ("field", name, key, 0))
 
 
+def pressed(query):
+    # «cfg <форма>:<кнопка> значение» → форма, (действие, модуль, ключ) с кнопки, значение
+    ref, _, value = query.removeprefix("cfg ").partition(" ")
+    unit_id, _, index = ref.partition(":")
+    unit = module.app.inline.units.get(unit_id)
+    button = unit.buttons.get(int(index)) if unit and index.isdigit() else None
+    return unit, getattr(button, "data", None), value.strip()
+
+
+def apply(action, name, key, value):
+    if name == "core":
+        return apply_core(module.app, key, value)
+    item = target(name)
+    field = item.config.fields[key]
+    item.config[key] = [*item.config[key], parse_item(field, value)] if action == "add" else parse_value(field, value)
+
+
+@module.inline("cfg ")
+async def input_hint(bot, query):
+    _, data, value = pressed(query.query)
+    results = []
+    if data:
+        title = t("input.add" if data[0] == "add" else "input.save", value=value) if value else t("input.empty")
+        results.append(
+            InlineQueryResultArticle(title, InputTextMessageContent("⏳"), id="cfg", description=field_name(*data[1:]))
+        )
+    await query.answer(results, cache_time=0, is_personal=True)
+
+
+@module.chosen("cfg ")
+async def input_value(bot, result):
+    unit, data, value = pressed(result.query)
+    if not data:
+        return
+    action, name, key = data
+    note = ""
+    if value:
+        try:
+            apply(action, name, key, value)
+        except (ValueError, TypeError, KeyError) as exc:
+            note = t("bad_value", error=str(exc))
+    text, rows = screen(("core_field", key) if name == "core" else ("field", name, key, 0))
+    await module.app.inline.edit(unit, note + text, rows)
+    await drop_input(unit)
+
+
+async def drop_input(unit):
+    # «⏳» ушёл от владельца через бота в чат формы — убираем его. Ищем по автору и боту, не по out:
+    # в «Избранном» у своих сообщений out=False.
+    me, bot_id, chat = module.client.me.id, module.app.bot.me.id, unit.data.get("chat_id")
+    if unit.data.get("direct") and chat == me:
+        chat = bot_id  # личка с ботом глазами юзербота
+    with suppress(RPCError):
+        async for message in module.client.get_chat_history(chat, limit=5):
+            if getattr(message.via_bot, "id", None) == bot_id and getattr(message.from_user, "id", None) == me:
+                return await message.delete()
+    module.log.warning("не нашёл «⏳» в чате %s", chat)
+
+
 @module.command("config", roles=("sudo",))
 async def configure(client: Client, message: Message):
     # — настройки Elys и модулей: меню с кнопками или быстрый ввод .config <модуль> [ключ] [значение]
@@ -437,7 +506,7 @@ async def configure(client: Client, message: Message):
             apply_core(app, key, val)
         except ValueError as exc:
             raise UserError(str(exc)) from None
-        await respond(message, t("updated", name=f"Elys › {t(f'name.{key}')}", value=val))
+        await respond(message, t("updated", name=field_name("core", key), value=val))
         return
 
     item = app.loader.resolve(target_name)
@@ -453,7 +522,7 @@ async def configure(client: Client, message: Message):
         raise UserError(t("apply_failed", error=exc)) from None
 
     shown_val = "••••" if field.secret else str(item.config[key])
-    await respond(message, t("updated", name=f"{item.name} › {label(item, key)}", value=shown_val))
+    await respond(message, t("updated", name=field_name(item.name, key), value=shown_val))
 
 
 @module.callback("elys:settings")
@@ -461,16 +530,6 @@ async def from_welcome(bot, query):
     text, rows = screen(("home",))
     await module.app.inline.bot_form(module, query.message.chat.id, text, rows)
     await query.answer()
-
-
-@module.loop(1800)
-async def refresh_premium(client: Client):
-    module.app.premium = bool((await client.get_me()).is_premium)
-
-
-@module.on_ready
-async def ready(client: Client):
-    refresh_premium.start()
 
 
 @module.on_unload

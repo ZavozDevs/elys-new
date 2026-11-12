@@ -16,6 +16,7 @@ from pyrogram import filters as filters_api
 from pyrogram.filters import Filter
 from pyrogram.handlers import (
     CallbackQueryHandler,
+    ChosenInlineResultHandler,
     DeletedMessagesHandler,
     EditedMessageHandler,
     InlineQueryHandler,
@@ -158,21 +159,26 @@ class Module:
         return decorator
 
     def callback(self, prefix: str):
-        async def matches(_, client, query):
+        return self._owner_watcher(CallbackQueryHandler, "data", prefix)
+
+    def inline(self, prefix: str):
+        return self._owner_watcher(InlineQueryHandler, "query", prefix)
+
+    def chosen(self, prefix: str):
+        return self._owner_watcher(ChosenInlineResultHandler, "query", prefix)
+
+    def _owner_watcher(self, kind, field, prefix):
+        # бот-хендлер владельца: callback_data / текст инлайн-запроса начинается с prefix
+        async def matches(_, client, update):
+            value = getattr(update, field, None)
             return (
-                query.from_user is not None
-                and query.from_user.id == self.client.me.id
-                and isinstance(query.data, str)
-                and query.data.startswith(prefix)
+                update.from_user is not None
+                and update.from_user.id == self.client.me.id
+                and isinstance(value, str)
+                and value.startswith(prefix)
             )
 
-        return self._bot_watcher(CallbackQueryHandler, filters_api.create(matches))
-
-    def inline(self, query: str):
-        async def matches(_, client, update):
-            return update.from_user is not None and update.from_user.id == self.client.me.id and update.query == query
-
-        return self._bot_watcher(InlineQueryHandler, filters_api.create(matches))
+        return self._bot_watcher(kind, filters_api.create(matches))
 
     def _bot_watcher(self, kind, filters):
         def decorator(func):
@@ -327,6 +333,10 @@ class Module:
         @wraps(func)
         async def run(client: Client, message: Message) -> None:
             start = perf_counter()
+            # Premium владельца приходит вместе с его командой: свежий без запросов (§12.1).
+            owner = getattr(message, "from_user", None) if getattr(message, "outgoing", False) else None
+            if isinstance(premium := getattr(owner, "is_premium", None), bool):
+                self.app.premium = premium
             try:
                 await func(client, message)
             except UserError as e:

@@ -30,7 +30,7 @@ async def ping(client: Client, message: Message) -> None:
     # — задержка ответа telegram и аптайм
     start = perf_counter()
     raw_emoji = module.config["ping_emoji"] or "🌟"
-    emoji_rendered = render(raw_emoji, premium=bool(getattr(client.me, "is_premium", False)))
+    emoji_rendered = render(raw_emoji, premium=module.app.premium)
     reply = await respond(message, emoji_rendered)
 
     ping_ms = round((perf_counter() - start) * 1000, 2)
@@ -63,7 +63,7 @@ async def ping(client: Client, message: Message) -> None:
         template = re.sub(r"[^\n]*\{now_play\}[^\n]*\n?", "", template)
 
     result = re.sub(r"\{(\w+)\}", lambda m: str(data.get(m.group(1), m.group(0))), template).strip()
-    final_text = render(result, premium=bool(getattr(client.me, "is_premium", False)))
+    final_text = render(result, premium=module.app.premium)
 
     target = reply if reply is not None else message
     await respond(target, final_text, banner=module.config["banner"])

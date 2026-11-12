@@ -6,7 +6,7 @@ import pytest
 
 from elys import Config, Module, respond
 from elys.sdk.module import LoadError
-from tests.inline_helpers import click, install_inline, last_unit
+from tests.inline_helpers import click, install_inline, last_unit, type_value
 from tests.integration.test_loader import app as app
 from tests.integration.test_loader import source as source
 
@@ -57,8 +57,7 @@ async def setup(app):
 async def test_help_settings_alias_and_owner_only_flow(app):
     await setup(app)
     help_message = await invoke(app, ".help")
-    assert "Команда — обычное сообщение" in help_message.edits[0]
-    assert ".dlm" in help_message.edits[0]
+    assert "<blockquote expandable>" in help_message.edits[0] and "dlm" in help_message.edits[0]
     detail = await invoke(app, ".help Ping")
     assert "задержка ответа telegram" in detail.edits[0]
     from elys.builtin.configure import apply_core
@@ -80,7 +79,7 @@ async def test_help_settings_alias_and_owner_only_flow(app):
     await click(app, unit, "‹ Назад")
     await click(app, unit, "Язык")
     await click(app, unit, "🇬🇧 English")
-    assert "Elys · commands" in (await invoke(app, "!help")).edits[0]
+    assert "Modules available" in (await invoke(app, "!help")).edits[0]
     await click(app, unit, "‹ Back")  # после смены языка кнопки уже английские
     await click(app, unit, "Banners")
     await click(app, unit, "Off")
@@ -246,15 +245,10 @@ async def test_config_cli_and_steppers_and_inline_query(app):
     await click(app, unit_tags, "tag1")
     assert custom.config["tags"] == ["tag2"]
 
-    # 4. Inline query cfg со случайным 5-символьным токеном
+    # 4. Ввод через бота: кнопка ссылается на себя, значение применяется к своей форме
     add_btn = next(b for row in unit_tags.data["markup"].inline_keyboard for b in row if b.text == "Добавить")
-    assert add_btn.switch_inline_query_current_chat.startswith("cfg ")
-    token = add_btn.switch_inline_query_current_chat.split()[1]
-    assert len(token) == 5
-
-    q_token = SimpleNamespace(query=f"cfg {token} tag4", from_user=app.client.me, inline_message_id="msg-2")
-    from pyrogram import StopPropagation
-
-    with pytest.raises(StopPropagation):
-        await app.inline._chosen(app.bot, q_token)
+    assert add_btn.switch_inline_query_current_chat.startswith(f"cfg {unit_tags.id}:")
+    await type_value(app, unit_tags, "Добавить", "tag4")
+    assert custom.config["tags"] == ["tag2", "tag4"]
+    await type_value(app, unit_tags, "Добавить", "")
     assert custom.config["tags"] == ["tag2", "tag4"]

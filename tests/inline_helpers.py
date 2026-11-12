@@ -26,6 +26,23 @@ def install_inline(app):
     app.client.get_inline_bot_results = get_results
 
 
+async def type_value(app, unit, text, value):
+    # ввод через бота: «@бот cfg <форма>:<кнопка> значение» → выбор подсказки → «⏳» удаляется
+    from elys.builtin import configure
+
+    index = next(i for i, b in unit.buttons.items() if b.query is not None and b.text == text)
+    sent = SimpleNamespace(
+        outgoing=False, from_user=app.client.me, via_bot=app.bot.me, delete=AsyncMock()
+    )  # как в «Избранном»
+
+    async def history(chat_id, limit=0):
+        yield sent
+
+    app.client.get_chat_history = history
+    await configure.input_value(app.bot, SimpleNamespace(query=f"cfg {unit.id}:{index} {value}"))
+    return sent
+
+
 def last_unit(app):
     return next(reversed(app.inline.units.items.values()))
 
