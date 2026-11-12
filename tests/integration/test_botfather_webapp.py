@@ -20,8 +20,18 @@ AUTH = "query_id=fake&user=fake&hash=private-init-data"
 
 @pytest.fixture
 async def webapp(app, monkeypatch):
-    state = SimpleNamespace(bots={}, titles={}, requests=[], failure=None, settings={}, durable=[],
-                            response_after_create=False, chat=[], chat_reject=False, chat_log=[])
+    state = SimpleNamespace(
+        bots={},
+        titles={},
+        requests=[],
+        failure=None,
+        settings={},
+        durable=[],
+        response_after_create=False,
+        chat=[],
+        chat_reject=False,
+        chat_log=[],
+    )
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -43,16 +53,20 @@ async def webapp(app, monkeypatch):
                 return self.respond('<script>ajInit({"apiUrl":"/api?hash=private-bootstrap"})</script>', 400)
             if path == "/botfather":
                 # Вёрстка как в настоящем Web App: название и username в отдельных div.
-                return self.respond("".join(
-                    f'<a class="tm-row tm-row-link" href="/botfather/bot/{identity}"><img class="tm-row-pic">'
-                    f'<div> <div class="tm-row-value">{state.titles.get(username, "Elys")}</div>'
-                    f'<div class="tm-row-description">@{username}</div> </div></a>'
-                    for username, identity in state.bots.items()
-                ))
+                return self.respond(
+                    "".join(
+                        f'<a class="tm-row tm-row-link" href="/botfather/bot/{identity}"><img class="tm-row-pic">'
+                        f'<div> <div class="tm-row-value">{state.titles.get(username, "Elys")}</div>'
+                        f'<div class="tm-row-description">@{username}</div> </div></a>'
+                        for username, identity in state.bots.items()
+                    )
+                )
             if path == "/botfather/bot/123456":
                 token = "987654:" + "z" * 35 if state.failure == "token" else TOKEN
-                return self.respond(f'<script>"{TOKEN}"</script><div class="tm-api-token">'
-                                    f'<span>{token}</span><div class="copy-btn"></div></div>')
+                return self.respond(
+                    f'<script>"{TOKEN}"</script><div class="tm-api-token">'
+                    f'<span>{token}</span><div class="copy-btn"></div></div>'
+                )
             self.respond("not found", 404)
 
         def do_POST(self):
@@ -72,8 +86,11 @@ async def webapp(app, monkeypatch):
                     return
                 if state.failure == "json":
                     return self.respond(TOKEN + AUTH)
-                endpoint = ("https://example.org/api?hash=private" if state.failure == "endpoint"
-                            else "/botfather/api?hash=private-session")
+                endpoint = (
+                    "https://example.org/api?hash=private"
+                    if state.failure == "endpoint"
+                    else "/botfather/api?hash=private-session"
+                )
                 if state.failure == "endpoint_type":
                     endpoint = [AUTH]
                 return self.respond(json.dumps({"ok": "1", "api_url": endpoint}), cookie=True)
@@ -92,8 +109,11 @@ async def webapp(app, monkeypatch):
             if method == "changeSettings":
                 assert data["bid"] == ["123456"]
                 state.durable.append(dict(app.kv.ns("core")))
-                if state.failure == "inline" or (state.failure == "placeholder" and "settings[inph]" in data) \
-                        or (state.failure == "feedback" and "settings[infdb]" in data):
+                if (
+                    state.failure == "inline"
+                    or (state.failure == "placeholder" and "settings[inph]" in data)
+                    or (state.failure == "feedback" and "settings[infdb]" in data)
+                ):
                     return self.respond(json.dumps({"error": TOKEN + AUTH}))
                 state.settings.update({key: value[0] for key, value in data.items() if key.startswith("settings[")})
                 return self.respond(json.dumps({"ok": True}))
@@ -105,6 +125,7 @@ async def webapp(app, monkeypatch):
     origin = f"http://127.0.0.1:{server.server_port}"
     monkeypatch.setattr(BotFatherWebApp, "ORIGIN", origin)
     app.client.get_main_web_app = AsyncMock(return_value=origin + "/botfather#" + urlencode({"tgWebAppData": AUTH}))
+
     # Имитация диалога с BotFather: он отвечает на каждое наше сообщение, на username — токеном.
     async def send_message(chat, text):
         assert chat == "BotFather"
@@ -129,8 +150,7 @@ async def webapp(app, monkeypatch):
     app.client.send_message = send_message
     app.client.get_chat_history = get_chat_history
     app.client.delete_messages = delete_messages
-    monkeypatch.setattr(bot_module, "create_bot_in_chat",
-                        functools.partial(bot_module.create_bot_in_chat, poll=0))
+    monkeypatch.setattr(bot_module, "create_bot_in_chat", functools.partial(bot_module.create_bot_in_chat, poll=0))
     app.client.listen = AsyncMock()
     app.client.unblock_user = AsyncMock()
     yield state
@@ -157,8 +177,11 @@ async def test_provision_over_http_saves_token_before_inline_and_skips_finished_
     assert "bot_token" not in webapp.durable[0] and webapp.durable[0]["bot_username"] == core["bot_username"]
     assert all(snapshot["bot_token"] == TOKEN for snapshot in webapp.durable[1:])
     # Inline Feedback 100% (в Web App 1 = 100%): без него бот не узнает inline_message_id формы.
-    assert webapp.settings == {"settings[inline]": "1", "settings[inph]": "Elys: команды и настройки",
-                               "settings[infdb]": "1"}
+    assert webapp.settings == {
+        "settings[inline]": "1",
+        "settings[inph]": "Elys: команды и настройки",
+        "settings[infdb]": "1",
+    }
     count = len(webapp.requests)
     assert await service._provision() == TOKEN
     assert len(webapp.requests) == count
@@ -240,10 +263,22 @@ async def test_rejected_username_in_chat_fails_cleanly_and_resumes_same_username
     assert core["bot_username"] == username
 
 
-@pytest.mark.parametrize("failure", [
-    "auth", "bootstrap", "redirect", "endpoint", "endpoint_type", "json", "create", "token", "inline", "placeholder",
-    "feedback",
-])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "auth",
+        "bootstrap",
+        "redirect",
+        "endpoint",
+        "endpoint_type",
+        "json",
+        "create",
+        "token",
+        "inline",
+        "placeholder",
+        "feedback",
+    ],
+)
 async def test_failures_do_not_leak_secrets(app, webapp, failure, caplog):
     webapp.failure = failure
     webapp.chat_reject = True  # Запасной путь через чат тоже отказывает.
@@ -263,14 +298,17 @@ async def test_webapp_link_timeout_does_not_attempt_http_or_chat(app, webapp):
     assert not webapp.requests and not webapp.chat_log
 
 
-@pytest.mark.parametrize("link", [
-    "https://example.org/botfather#tgWebAppData=secret",
-    "http://webappinternal.telegram.org/botfather#tgWebAppData=secret",
-    "https://webappinternal.telegram.org.evil/botfather#tgWebAppData=secret",
-    "https://webappinternal.telegram.org/other#tgWebAppData=secret",
-    "https://webappinternal.telegram.org/botfather",
-    "https://webappinternal.telegram.org/botfather#tgWebAppData=a&tgWebAppData=b",
-])
+@pytest.mark.parametrize(
+    "link",
+    [
+        "https://example.org/botfather#tgWebAppData=secret",
+        "http://webappinternal.telegram.org/botfather#tgWebAppData=secret",
+        "https://webappinternal.telegram.org.evil/botfather#tgWebAppData=secret",
+        "https://webappinternal.telegram.org/other#tgWebAppData=secret",
+        "https://webappinternal.telegram.org/botfather",
+        "https://webappinternal.telegram.org/botfather#tgWebAppData=a&tgWebAppData=b",
+    ],
+)
 def test_webapp_rejects_unexpected_link_without_network(link):
     with pytest.raises(BotSetupError):
         BotFatherWebApp(link)

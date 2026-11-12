@@ -143,11 +143,7 @@ SCRIPT = textwrap.dedent(
 @pytest.mark.parametrize("answer", ["2", "9\n2", ""])
 def test_real_pipe_menu_and_async_field(answer):
     proc = subprocess.run(
-        [sys.executable, "-c", SCRIPT],
-        input=f"{answer}\n1a\n12\n",
-        capture_output=True,
-        text=True,
-        timeout=10,
+        [sys.executable, "-c", SCRIPT], input=f"{answer}\n1a\n12\n", capture_output=True, text=True, timeout=10
     )
     assert proc.returncode == 0, proc.stderr
     selected = 0 if answer == "" else 1
@@ -199,11 +195,7 @@ def run_in_pty(*steps: tuple[bytes, bytes], terminal: str = "xterm-256color") ->
 @pytest.mark.skipif(os.name != "posix", reason="pty только на posix")
 def test_real_terminal_arrows_and_inline_error():
     # ↓ Enter → «По номеру»; «1a» Enter → ошибка под полем; ⌫ «2» Enter → принято
-    out = run_in_pty(
-        (b"Enter)", b"\x1b[B\r"),
-        ("Код".encode(), b"1a\r"),
-        ("только цифры".encode(), b"\x7f2\r"),
-    )
+    out = run_in_pty((b"Enter)", b"\x1b[B\r"), ("Код".encode(), b"1a\r"), ("только цифры".encode(), b"\x7f2\r"))
     assert "RESULT 1 12" in out
     assert "только цифры" in out
     assert "\x1b[?25h" in out  # курсор вернули
@@ -212,10 +204,7 @@ def test_real_terminal_arrows_and_inline_error():
 @pytest.mark.skipif(os.name != "posix", reason="pty только на posix")
 @pytest.mark.parametrize("keys", [b"2\r", b"2\x1b[A\r"])
 def test_real_terminal_numbers_can_be_confirmed_or_changed(keys):
-    out = run_in_pty(
-        (b"Enter)", keys),
-        ("Код".encode(), b"42\r"),
-    )
+    out = run_in_pty((b"Enter)", keys), ("Код".encode(), b"42\r"))
     selected = 0 if b"[A" in keys else 1
     assert f"RESULT {selected} 42" in out
     assert "1. По QR-коду" in out and "2. По номеру" in out
@@ -224,11 +213,7 @@ def test_real_terminal_numbers_can_be_confirmed_or_changed(keys):
 
 @pytest.mark.skipif(os.name != "posix", reason="pty только на posix")
 def test_real_dumb_terminal_uses_numbered_menu():
-    out = run_in_pty(
-        ("Номер".encode(), b"2\n"),
-        ("Код:".encode(), b"42\n"),
-        terminal="dumb",
-    )
+    out = run_in_pty(("Номер".encode(), b"2\n"), ("Код:".encode(), b"42\n"), terminal="dumb")
     assert "RESULT 1 42" in out
     assert "\x1b" not in out
 

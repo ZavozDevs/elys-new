@@ -110,7 +110,7 @@ async def _send_file(client: Client, message: Message, code: str, mark: str, bod
             message.chat.id,
             document,
             caption=f'<pre language="python">{html.escape(code)}</pre>\n'
-                    + module.t("in_file", mark=mark, size=_size(len(data))),
+            + module.t("in_file", mark=mark, size=_size(len(data))),
             message_thread_id=getattr(message, "message_thread_id", None),
             reply_to_message_id=getattr(message, "reply_to_message_id", None),
         )
@@ -154,7 +154,7 @@ def _split(text: str, units: int) -> list[str]:
                 current = ""
             head = line.encode("utf-16-le")[: units * 2].decode("utf-16-le", errors="ignore")
             chunks.append(head)
-            line = line[len(head):]
+            line = line[len(head) :]
         if _units(current) + _units(line) > units:
             chunks.append(current)
             current = ""

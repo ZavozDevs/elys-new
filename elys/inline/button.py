@@ -32,6 +32,11 @@ class Button:
         if self.query is not None:
             unit_id = callback_data.split(":")[0] if callback_data else ""
             query = self.query.replace("{unit_id}", unit_id)
-        return InlineKeyboardButton(text, callback_data=callback_data if self.callback else None,
-                                    url=self.url, switch_inline_query_current_chat=query,
-                                    style=style, icon_custom_emoji_id=icon)
+        return InlineKeyboardButton(
+            text,
+            callback_data=callback_data if self.callback else None,
+            url=self.url,
+            switch_inline_query_current_chat=query,
+            style=style,
+            icon_custom_emoji_id=icon,
+        )

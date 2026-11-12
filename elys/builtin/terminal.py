@@ -36,14 +36,19 @@ async def terminal(client: Client, message: Message) -> None:
             os.killpg(process.pid, signal.SIGKILL)
         return
     status = await respond(message, screen(command, b"", t("running")))
-    process = await asyncio.create_subprocess_shell(command, stdin=asyncio.subprocess.DEVNULL, start_new_session=True,
-                                                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdin=asyncio.subprocess.DEVNULL,
+        start_new_session=True,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
     running[status.chat.id, status.id] = process
     output, shown, code = b"", monotonic(), t("running")
     try:
         async with asyncio.timeout(module.config["timeout"] or None):
             while chunk := await process.stdout.read(4096):
-                output = (output + chunk)[-4 * LIMIT:]
+                output = (output + chunk)[-4 * LIMIT :]
                 if monotonic() - shown > 3:  # не чаще раза в 3 с: лимит правок telegram
                     shown = monotonic()
                     status = await respond(status, screen(command, output, code))

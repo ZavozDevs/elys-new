@@ -36,6 +36,7 @@ async def pyrogram():
     c = Client(SESSION, api_id=API_ID, api_hash=API_HASH, workdir=".", no_updates=True)
     await c.start()
     try:
+
         async def fetch(m):
             cur = await c.get_messages("me", m.id)
             return None if cur is None or cur.empty else cur.text
@@ -51,6 +52,7 @@ async def telethon():
     c = TelegramClient(SESSION, API_ID, API_HASH, receive_updates=False)
     await c.connect()
     try:
+
         async def fetch(m):
             cur = await c.get_messages("me", ids=m.id)
             return None if cur is None else cur.raw_text

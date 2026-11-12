@@ -44,10 +44,15 @@ def test_units_ttl_owner_resources_collision_and_unload(monkeypatch):
         units.add(module, "form", {}, {1}, ttl=0)
 
 
-@pytest.mark.parametrize("direct,premium,style,visible", [
-    (True, True, "success", True), (True, True, "default", True),  # бот отправил сам, владелец с Premium
-    (False, True, "primary", False), (True, False, "danger", False),
-])
+@pytest.mark.parametrize(
+    "direct,premium,style,visible",
+    [
+        (True, True, "success", True),
+        (True, True, "default", True),  # бот отправил сам, владелец с Premium
+        (False, True, "primary", False),
+        (True, False, "danger", False),
+    ],
+)
 def test_button_icons_follow_telegram_constraints(direct, premium, style, visible):
     button = Button("Готово", AsyncMock(), icon="check", style=style)
     result = button.render("Abc12345:0", direct=direct, premium=premium)
@@ -80,20 +85,32 @@ def test_button_requires_one_action_and_photo_public_url():
         Photo("file:///tmp/private.jpg")
 
 
-@pytest.mark.parametrize("field,text,expected", [
-    (Config.value(1), "-2", -2), (Config.value(1.0), "1,5", 1.5),
-    (Config.value([]), '["a", 2]', ["a", 2]), (Config.value({}), '{"a": 1}', {"a": 1}),
-    (Config.value(None), 'null', None), (Config.secret(), "<secret>", "<secret>"),
-    (Config.url(), "https://example.org/x", "https://example.org/x"),
-])
+@pytest.mark.parametrize(
+    "field,text,expected",
+    [
+        (Config.value(1), "-2", -2),
+        (Config.value(1.0), "1,5", 1.5),
+        (Config.value([]), '["a", 2]', ["a", 2]),
+        (Config.value({}), '{"a": 1}', {"a": 1}),
+        (Config.value(None), "null", None),
+        (Config.secret(), "<secret>", "<secret>"),
+        (Config.url(), "https://example.org/x", "https://example.org/x"),
+    ],
+)
 def test_config_input_types(field, text, expected):
     assert parse_value(field, text) == expected
 
 
-@pytest.mark.parametrize("field,text", [
-    (Config.value(1), "1.2"), (Config.value(1.0), "nan"), (Config.value([]), '{}'),
-    (Config.url(), "https://user:pass@example.org"), (Config.choice("a", ["a", "b"]), "c"),
-])
+@pytest.mark.parametrize(
+    "field,text",
+    [
+        (Config.value(1), "1.2"),
+        (Config.value(1.0), "nan"),
+        (Config.value([]), "{}"),
+        (Config.url(), "https://user:pass@example.org"),
+        (Config.choice("a", ["a", "b"]), "c"),
+    ],
+)
 def test_config_rejects_invalid_values(field, text):
     with pytest.raises((ValueError, TypeError)):
         parse_value(field, text)

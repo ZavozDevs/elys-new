@@ -17,8 +17,9 @@ class Owner:
 
 def msg(text=None, *, caption=None, outgoing=True, sender=5, chat=-10):
     user = sender and SimpleNamespace(id=sender)
-    return SimpleNamespace(text=text, caption=caption, outgoing=outgoing, command=None,
-                           from_user=user, chat=SimpleNamespace(id=chat))
+    return SimpleNamespace(
+        text=text, caption=caption, outgoing=outgoing, command=None, from_user=user, chat=SimpleNamespace(id=chat)
+    )
 
 
 def setup(prefixes=(".",)):
@@ -41,11 +42,7 @@ async def run(router, owner, message):
 
 @pytest.mark.parametrize(
     ("text", "command"),
-    [
-        (".ping", ["ping"]),
-        (".PING a 'b c' \"d\"", ["ping", "a", "b c", "d"]),
-        (".p\nx", ["ping", "x"]),
-    ],
+    [(".ping", ["ping"]), (".PING a 'b c' \"d\"", ["ping", "a", "b c", "d"]), (".p\nx", ["ping", "x"])],
 )
 async def test_dispatch(text, command):
     router, owner, calls = setup()

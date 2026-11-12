@@ -8,12 +8,7 @@ from contextlib import suppress
 from pyrogram import StopPropagation, filters
 from pyrogram.enums import ParseMode
 from pyrogram.errors import MessageNotModified, QueryIdInvalid, RPCError
-from pyrogram.handlers import (
-    CallbackQueryHandler,
-    ChosenInlineResultHandler,
-    InlineQueryHandler,
-    MessageHandler,
-)
+from pyrogram.handlers import CallbackQueryHandler, ChosenInlineResultHandler, InlineQueryHandler, MessageHandler
 from pyrogram.raw.types import (
     Updates,
     UpdatesCombined,
@@ -76,9 +71,11 @@ class Inline:
             q = getattr(result, "query", "") or ""
             return self.units.get(rid) is not None or q.startswith("cfg ") or q.startswith("cfg:")
 
-        handlers = [InlineQueryHandler(self._query, filters.create(unit_query)),
-                    CallbackQueryHandler(self._callback, filters.create(unit_callback)),
-                    ChosenInlineResultHandler(self._chosen, filters.create(unit_chosen))]
+        handlers = [
+            InlineQueryHandler(self._query, filters.create(unit_query)),
+            CallbackQueryHandler(self._callback, filters.create(unit_callback)),
+            ChosenInlineResultHandler(self._chosen, filters.create(unit_chosen)),
+        ]
         for handler in handlers:
             await change_handler(self.app.bot, handler, GROUP)
             self._handlers.append(handler)
@@ -122,8 +119,9 @@ class Inline:
             for button in row:
                 index = unit.next_button
                 unit.next_button += 1
-                rendered.append(button.render(f"{unit.id}:{index}", premium=self.app.premium,
-                                                direct=unit.data.get("direct", False)))
+                rendered.append(
+                    button.render(f"{unit.id}:{index}", premium=self.app.premium, direct=unit.data.get("direct", False))
+                )
                 if button.callback:
                     buttons[index] = button
             if rendered:
@@ -138,11 +136,16 @@ class Inline:
         # Премиум-эмодзи нельзя отправить в inline-результате: отправляем заглушку, затем правим.
         # Нужен Inline Feedback (флаг bot_feedback ставит BotService), иначе inline_message_id не узнать.
         core = self.app.kv.ns("core")
-        return bool(self.app.premium and core.get("bot_feedback") and core.get("bot_feedback") == core.get("bot_token")
-                    and "<tg-emoji" in self._text(text))
+        return bool(
+            self.app.premium
+            and core.get("bot_feedback")
+            and core.get("bot_feedback") == core.get("bot_token")
+            and "<tg-emoji" in self._text(text)
+        )
 
-    async def form(self, owner, message, text, buttons=(), *, banner=None, allowed_ids=None, ttl=86400,
-                   kind="form", data=None):
+    async def form(
+        self, owner, message, text, buttons=(), *, banner=None, allowed_ids=None, ttl=86400, kind="form", data=None
+    ):
         if not owner.loaded:
             raise RuntimeError("модуль уже выключен")
         if allowed_ids is None:  # кнопки — владельцу и тому, кто вызвал команду (sudo)
@@ -160,8 +163,7 @@ class Inline:
             chat_id = message if isinstance(message, int) else message.chat.id
             unit.data["chat_id"] = chat_id
             sent_raw = await self.app.client.send_inline_bot_result(
-                chat_id, results.query_id, unit.id,
-                message_thread_id=getattr(message, "message_thread_id", None),
+                chat_id, results.query_id, unit.id, message_thread_id=getattr(message, "message_thread_id", None)
             )
             msg_id = _extract_msg_id(sent_raw)
             if msg_id:
@@ -195,8 +197,10 @@ class Inline:
         try:
             inline_id = await asyncio.wait_for(unit.data["sent"], 10)
         except TimeoutError:
-            log.warning("Telegram не сообщил о выбранной форме, премиум-эмодзи не показаны. "
-                        "Проверь Inline Feedback бота в @BotFather.")
+            log.warning(
+                "Telegram не сообщил о выбранной форме, премиум-эмодзи не показаны. "
+                "Проверь Inline Feedback бота в @BotFather."
+            )
             return
         finally:
             unit.data.pop("sent", None)  # дальше форма обычная: повторный запрос получит полный текст
@@ -204,13 +208,19 @@ class Inline:
             try:
                 if unit.kind == "gallery":
                     await self.app.bot.edit_inline_caption(
-                        inline_id, self._text(unit.data["text"]), parse_mode=ParseMode.HTML,
-                        reply_markup=unit.data["markup"])
+                        inline_id,
+                        self._text(unit.data["text"]),
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=unit.data["markup"],
+                    )
                 else:
                     await self.app.bot.edit_inline_text(
-                        inline_id, self._text(unit.data["text"]), parse_mode=ParseMode.HTML,
+                        inline_id,
+                        self._text(unit.data["text"]),
+                        parse_mode=ParseMode.HTML,
                         reply_markup=unit.data["markup"],
-                        link_preview_options=preview(unit.data["banner"], self.app.banners_enabled))
+                        link_preview_options=preview(unit.data["banner"], self.app.banners_enabled),
+                    )
                 return
             except MessageNotModified:
                 return
@@ -218,20 +228,26 @@ class Inline:
                 if attempt == 3:
                     log.exception("Не удалось показать премиум-эмодзи в форме")
                     return
-                await asyncio.sleep(0.1 * 2 ** attempt)
+                await asyncio.sleep(0.1 * 2**attempt)
 
     async def bot_form(self, owner, chat_id, text, buttons=(), *, ttl=86400, thread=None):
         if not owner.loaded:
             raise RuntimeError("модуль уже выключен")
         # direct: сообщение отправляет сам бот, поэтому на кнопках работают премиум-иконки.
-        unit = self.units.add(owner, "form", {"text": text, "banner": None, "direct": True},
-                              [self.app.client.me.id], ttl=ttl)
+        unit = self.units.add(
+            owner, "form", {"text": text, "banner": None, "direct": True}, [self.app.client.me.id], ttl=ttl
+        )
         try:
             markup = self._keyboard(unit, buttons)
             unit.data["markup"] = markup
-            sent = await self.app.bot.send_message(chat_id, self._text(text), reply_markup=markup,
-                                                   parse_mode=ParseMode.HTML, disable_notification=True,
-                                                   message_thread_id=thread)
+            sent = await self.app.bot.send_message(
+                chat_id,
+                self._text(text),
+                reply_markup=markup,
+                parse_mode=ParseMode.HTML,
+                disable_notification=True,
+                message_thread_id=thread,
+            )
             unit.data["chat_id"] = chat_id
             unit.data["message_id"] = sent.id
         except BaseException:
@@ -250,6 +266,7 @@ class Inline:
         val = parts[1].strip() if len(parts) > 1 else ""
 
         from elys.builtin.configure import _input_tokens
+
         if target_spec in _input_tokens:
             action, mod_name, key = _input_tokens[target_spec]
             return None, action, mod_name, key, val
@@ -325,6 +342,7 @@ class Inline:
 
         try:
             from elys.builtin.configure import apply_core, parse_item, parse_value, screen, target
+
             route = None
             if mod_name == "core":
                 apply_core(self.app, key, val)
@@ -342,16 +360,20 @@ class Inline:
             else:
                 return
 
-            unit = self.units.get(unit_id) if unit_id else next(
-                (u for u in reversed(self.units.items.values()) if u.owner_module.name == "Configure"), None
+            unit = (
+                self.units.get(unit_id)
+                if unit_id
+                else next((u for u in reversed(self.units.items.values()) if u.owner_module.name == "Configure"), None)
             )
             if unit and route:
                 text, rows = screen(route)
                 await self.edit_unit(unit, text, rows)
         except (ValueError, TypeError) as exc:
             log.warning("Некорректное значение для настройки %s.%s: %s", mod_name, key, exc)
-            unit = self.units.get(unit_id) if unit_id else next(
-                (u for u in reversed(self.units.items.values()) if u.owner_module.name == "Configure"), None
+            unit = (
+                self.units.get(unit_id)
+                if unit_id
+                else next((u for u in reversed(self.units.items.values()) if u.owner_module.name == "Configure"), None)
             )
             if unit and route:
                 with suppress(Exception):
@@ -373,13 +395,20 @@ class Inline:
             if unit.kind == "gallery":
                 photo = data["photos"][data["index"]]
                 caption = PLACEHOLDER if "sent" in data else self._text(photo.caption)
-                result = InlineQueryResultPhoto(photo.url, id=unit.id, caption=caption,
-                                                parse_mode=ParseMode.HTML, reply_markup=data["markup"])
+                result = InlineQueryResultPhoto(
+                    photo.url, id=unit.id, caption=caption, parse_mode=ParseMode.HTML, reply_markup=data["markup"]
+                )
             else:
-                result = InlineQueryResultArticle("Elys", id=unit.id, input_message_content=InputTextMessageContent(
-                    PLACEHOLDER if "sent" in data else self._text(data["text"]), parse_mode=ParseMode.HTML,
-                    link_preview_options=preview(data["banner"], self.app.banners_enabled),
-                ), reply_markup=data["markup"])
+                result = InlineQueryResultArticle(
+                    "Elys",
+                    id=unit.id,
+                    input_message_content=InputTextMessageContent(
+                        PLACEHOLDER if "sent" in data else self._text(data["text"]),
+                        parse_mode=ParseMode.HTML,
+                        link_preview_options=preview(data["banner"], self.app.banners_enabled),
+                    ),
+                    reply_markup=data["markup"],
+                )
             results.append(result)
         await query.answer(results, cache_time=0, is_personal=True)
         raise StopPropagation
@@ -413,9 +442,10 @@ class Inline:
             except Exception:
                 log.exception("Не сработала кнопка модуля %s", unit.owner_module.name)
                 with suppress(QueryIdInvalid):
-                    await query.answer("Кнопка не сработала. Подробности — в теме «Ошибки». "
-                                       "Попробуй открыть форму снова.",
-                                       show_alert=True)
+                    await query.answer(
+                        "Кнопка не сработала. Подробности — в теме «Ошибки». Попробуй открыть форму снова.",
+                        show_alert=True,
+                    )
 
     def from_query(self, query):
         match = _CALLBACK.fullmatch(query.data or "")
@@ -429,14 +459,19 @@ class Inline:
         try:
             if unit.data.get("inline_message_id"):
                 await self.app.bot.edit_inline_text(
-                    unit.data["inline_message_id"], self._text(text),
-                    parse_mode=ParseMode.HTML, reply_markup=markup,
+                    unit.data["inline_message_id"],
+                    self._text(text),
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup,
                     link_preview_options=preview(banner, self.app.banners_enabled),
                 )
             elif unit.data.get("chat_id") and unit.data.get("message_id"):
                 await self.app.bot.edit_message_text(
-                    unit.data["chat_id"], unit.data["message_id"], self._text(text),
-                    parse_mode=ParseMode.HTML, reply_markup=markup,
+                    unit.data["chat_id"],
+                    unit.data["message_id"],
+                    self._text(text),
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=markup,
                     link_preview_options=preview(banner, self.app.banners_enabled),
                 )
         except MessageNotModified:
@@ -457,8 +492,12 @@ class Inline:
         old_buttons = unit.buttons
         markup = self._keyboard(unit, buttons)
         try:
-            await target.edit_message_text(self._text(text), parse_mode=ParseMode.HTML, reply_markup=markup,
-                                           link_preview_options=preview(banner, self.app.banners_enabled))
+            await target.edit_message_text(
+                self._text(text),
+                parse_mode=ParseMode.HTML,
+                reply_markup=markup,
+                link_preview_options=preview(banner, self.app.banners_enabled),
+            )
         except MessageNotModified:
             pass
         except BaseException:
@@ -492,13 +531,21 @@ class Inline:
             raise ValueError("списку нужна хотя бы одна страница")
 
         async def navigate(bot, query, index):
-            await self.edit(query, pages[index],
-                            [*page_buttons(index, len(pages), navigate), [close_button(self._dismiss)]],
-                            banner=kwargs.get("banner"))
+            await self.edit(
+                query,
+                pages[index],
+                [*page_buttons(index, len(pages), navigate), [close_button(self._dismiss)]],
+                banner=kwargs.get("banner"),
+            )
 
-        return await self.form(owner, message, pages[0],
-                               [*page_buttons(0, len(pages), navigate), [close_button(self._dismiss)]],
-                               kind="list", **kwargs)
+        return await self.form(
+            owner,
+            message,
+            pages[0],
+            [*page_buttons(0, len(pages), navigate), [close_button(self._dismiss)]],
+            kind="list",
+            **kwargs,
+        )
 
     async def gallery(self, owner, message, photos, **kwargs):
         photos = tuple(photos)
@@ -510,17 +557,24 @@ class Inline:
             if unit is None:
                 return
             old_buttons = unit.buttons
-            markup = self._keyboard(unit, [*page_buttons(index, len(photos), navigate),
-                                           [close_button(self._dismiss)]])
+            markup = self._keyboard(unit, [*page_buttons(index, len(photos), navigate), [close_button(self._dismiss)]])
             photo = photos[index]
             try:
-                await query.edit_message_media(InputMediaPhoto(photo.url, caption=self._text(photo.caption),
-                                                               parse_mode=ParseMode.HTML), reply_markup=markup)
+                await query.edit_message_media(
+                    InputMediaPhoto(photo.url, caption=self._text(photo.caption), parse_mode=ParseMode.HTML),
+                    reply_markup=markup,
+                )
             except BaseException:
                 unit.buttons = old_buttons
                 raise
             unit.data.update(index=index, markup=markup)
 
-        return await self.form(owner, message, photos[0].caption,
-                               [*page_buttons(0, len(photos), navigate), [close_button(self._dismiss)]],
-                               kind="gallery", data={"photos": photos, "index": 0}, **kwargs)
+        return await self.form(
+            owner,
+            message,
+            photos[0].caption,
+            [*page_buttons(0, len(photos), navigate), [close_button(self._dismiss)]],
+            kind="gallery",
+            data={"photos": photos, "index": 0},
+            **kwargs,
+        )

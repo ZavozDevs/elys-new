@@ -141,7 +141,9 @@ async def test_backup_restore_and_zip_slip(app, tmp_path, monkeypatch):
             archive.writestr(name, "bad")
     restore_pending(target)
     assert sorted(p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file()) == [
-        "elys.db", "modules/mod.py"]
+        "elys.db",
+        "modules/mod.py",
+    ]
     assert not any(tmp_path.glob("*.py")) and not (tmp_path / "x.py").exists()
 
 
@@ -156,6 +158,7 @@ async def test_restore_command_validates_and_reboots(app, tmp_path, monkeypatch)
     def file(content):
         async def download(path):
             Path(path).write_bytes(content)  # noqa: ASYNC240
+
         return SimpleNamespace(document=object(), download=download)
 
     assert "Ответь" in (await invoke(app, ".restore")).edits[-1]
@@ -168,6 +171,7 @@ async def test_restore_command_validates_and_reboots(app, tmp_path, monkeypatch)
 
 async def test_remote_uses_etag(app, monkeypatch):
     from urllib.error import HTTPError
+
     sent = []
 
     async def fake_run(*command):
@@ -175,10 +179,13 @@ async def test_remote_uses_etag(app, monkeypatch):
 
     class Response:
         headers = {"ETag": "W/1"}  # noqa: RUF012
+
         def __enter__(self):
             return self
+
         def __exit__(self, *exc):
             return False
+
         def read(self):
             return b"abc123\n"
 

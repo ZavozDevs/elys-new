@@ -35,13 +35,16 @@ def _count_updates(u):
 def _wrap(cls, name, before):
     orig = getattr(cls, name)
     if inspect.iscoroutinefunction(orig):
+
         async def w(self, arg, *a, **k):
             before(arg)
             return await orig(self, arg, *a, **k)
     else:
+
         def w(self, arg, *a, **k):
             before(arg)
             return orig(self, arg, *a, **k)
+
     setattr(cls, name, w)
 
 

@@ -27,9 +27,7 @@ async def test_real_pip_installs_dependency_into_isolated_environment(tmp_path, 
     monkeypatch.setenv("PIP_NO_INDEX", "1")
     monkeypatch.setenv("PIP_FIND_LINKS", str(wheels))
     await loader.dependencies([name + "==1.0"])
-    process = await asyncio.create_subprocess_exec(
-        python, "-c", f"import {name}; assert {name}.VALUE == 42",
-    )
+    process = await asyncio.create_subprocess_exec(python, "-c", f"import {name}; assert {name}.VALUE == 42")
     assert await process.wait() == 0
     with pytest.raises(loader.LoadError, match="Не удалось"):
         await loader.dependencies(["elys_dependency_that_does_not_exist==1"])

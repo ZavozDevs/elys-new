@@ -13,9 +13,19 @@ from tests.integration.test_loader import source as source
 
 class Msg(SimpleNamespace):
     def __init__(self, text, *, outgoing=True):
-        super().__init__(text=text, caption=None, outgoing=outgoing, command=None, from_user=None,
-                         chat=SimpleNamespace(id=99, full_name="Chat"),
-                         reply_to_message=None, reply_to_message_id=None, edits=[], options=[], deleted=False)
+        super().__init__(
+            text=text,
+            caption=None,
+            outgoing=outgoing,
+            command=None,
+            from_user=None,
+            chat=SimpleNamespace(id=99, full_name="Chat"),
+            reply_to_message=None,
+            reply_to_message_id=None,
+            edits=[],
+            options=[],
+            deleted=False,
+        )
 
     async def delete(self, **kwargs):
         self.deleted = True
@@ -52,6 +62,7 @@ async def test_help_settings_alias_and_owner_only_flow(app):
     detail = await invoke(app, ".help Ping")
     assert "задержка ответа telegram" in detail.edits[0]
     from elys.builtin.configure import apply_core
+
     apply_core(app, "prefixes", "!")
     apply_core(app, "aliases", "п ping")
     ping = await invoke(app, "!п")
@@ -101,6 +112,7 @@ async def test_banner_context_and_live_premium_update(app):
     @module.command("display")
     async def display(client, message):
         from elys import E
+
         await respond(message, E.check, banner=module.config["banner"])
 
     await app.load(module)
@@ -170,11 +182,11 @@ async def test_loops_raw_deleted_ready_and_bot_decorators(app):
 async def test_bad_alias_is_user_error_not_internal_failure(app):
     await setup(app)
     from elys.builtin.configure import apply_core
+
     with pytest.raises(ValueError, match="занята"):
         apply_core(app, "aliases", "ping help")
     assert app.router.get("ping").owner.name == "Ping"
     assert app.router.aliases == {}
-
 
 
 async def test_documented_example_and_roles_are_owner_only(app):
@@ -199,10 +211,10 @@ async def test_documented_example_and_roles_are_owner_only(app):
 
 async def test_config_cli_and_steppers_and_inline_query(app):
     await setup(app)
-    custom = Module("Metrics", config=Config(
-        count=Config.integer(5, min=0, max=20),
-        tags=Config.series(["tag1", "tag2"], item_type=str),
-    ))
+    custom = Module(
+        "Metrics",
+        config=Config(count=Config.integer(5, min=0, max=20), tags=Config.series(["tag1", "tag2"], item_type=str)),
+    )
     await app.load(custom)
 
     # 1. Быстрый CLI ввод
@@ -240,12 +252,9 @@ async def test_config_cli_and_steppers_and_inline_query(app):
     token = add_btn.switch_inline_query_current_chat.split()[1]
     assert len(token) == 5
 
-    q_token = SimpleNamespace(
-        query=f"cfg {token} tag4",
-        from_user=app.client.me,
-        inline_message_id="msg-2",
-    )
+    q_token = SimpleNamespace(query=f"cfg {token} tag4", from_user=app.client.me, inline_message_id="msg-2")
     from pyrogram import StopPropagation
+
     with pytest.raises(StopPropagation):
         await app.inline._chosen(app.bot, q_token)
     assert custom.config["tags"] == ["tag2", "tag4"]

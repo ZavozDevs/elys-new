@@ -203,23 +203,23 @@ def test_legacy_reply_inline_markup_deserialization():
     # проверяем десериализацию старого replyInlineMarkup (0x48a30254)
     # со старыми кнопками keyboardButtonUrl (0xd80c25ec) и keyboardButtonCallback (0xe62bc960)
     btn1 = BytesIO()
-    btn1.write(Int(0xd80c25ec, False))  # keyboardButtonUrl
+    btn1.write(Int(0xD80C25EC, False))  # keyboardButtonUrl
     btn1.write(Int(0))  # flags (no style)
     btn1.write(String("Link"))
     btn1.write(String("https://example.com"))
 
     btn2 = BytesIO()
-    btn2.write(Int(0xe62bc960, False))  # keyboardButtonCallback
+    btn2.write(Int(0xE62BC960, False))  # keyboardButtonCallback
     btn2.write(Int(0))  # flags
     btn2.write(String("Callback"))
     btn2.write(Bytes(b"cb_data"))
 
     row_bytes = BytesIO()
-    row_bytes.write(Int(0x77608b83, False))  # keyboardButtonRow
+    row_bytes.write(Int(0x77608B83, False))  # keyboardButtonRow
     row_bytes.write(Vector([TLObject.read(BytesIO(btn1.getvalue())), TLObject.read(BytesIO(btn2.getvalue()))]))
 
     b = BytesIO()
-    b.write(Int(0x48a30254, False))  # replyInlineMarkup
+    b.write(Int(0x48A30254, False))  # replyInlineMarkup
     b.write(Vector([TLObject.read(BytesIO(row_bytes.getvalue()))]))
     b.seek(0)
 
@@ -233,5 +233,3 @@ def test_legacy_reply_inline_markup_deserialization():
     assert parsed.inline_keyboard[0][0].url == "https://example.com"
     assert parsed.inline_keyboard[0][1].text == "Callback"
     assert parsed.inline_keyboard[0][1].callback_data == "cb_data"
-
-

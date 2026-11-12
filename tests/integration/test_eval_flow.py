@@ -53,8 +53,7 @@ class FakeInline:
 async def run_long(tmp_path, source, *, inline=None, send_fails=False):
     client = Client("eval-test", api_id=1, api_hash="h", in_memory=True)
     kv = await KV.open(tmp_path / "eval.db")
-    host = SimpleNamespace(client=client, router=Router(["."]), kv=kv, inline=inline,
-                           bot=object() if inline else None)
+    host = SimpleNamespace(client=client, router=Router(["."]), kv=kv, inline=inline, bot=object() if inline else None)
     message = Message(id=1, text=f".e {source}", outgoing=True, chat=Chat(id=1, type=ChatType.PRIVATE), client=client)
     state = SimpleNamespace(edits=[], files=[], deleted=False)
 

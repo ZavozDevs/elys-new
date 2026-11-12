@@ -92,10 +92,7 @@ async def login(client: Client) -> User:
         term.header("вход в аккаунт")
         choice = await term.achoose(
             "Как войти?",
-            [
-                ("По QR-коду", "наводишь камеру телефона — проще"),
-                ("По номеру", "придёт код в Telegram или по SMS"),
-            ],
+            [("По QR-коду", "наводишь камеру телефона — проще"), ("По номеру", "придёт код в Telegram или по SMS")],
         )
         user = await (_qr(client) if choice == 0 else _phone(client))
         term.ok(f"Вход выполнен: {user.full_name}")

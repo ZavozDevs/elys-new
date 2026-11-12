@@ -19,8 +19,9 @@ class UserError(Exception):
     pass
 
 
-async def respond(message: Message, text: str = "", *, rich_text: str | None = None,
-                  banner: str | None = None, **kwargs: Any) -> Message:
+async def respond(
+    message: Message, text: str = "", *, rich_text: str | None = None, banner: str | None = None, **kwargs: Any
+) -> Message:
     # своё сообщение — редактируем, чужое (sudo) — отвечаем.
     app = current.get()
     is_premium = bool(getattr(app, "premium", False))

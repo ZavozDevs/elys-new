@@ -14,7 +14,7 @@ from elys.sdk.module import find
 from elys.settings import Settings
 from elys.storage.kv import KV
 
-SOURCE = '''import asyncio
+SOURCE = """import asyncio
 from elys import Module, Scope, Config
 module = Module("Hello", version="1", config=Config(count=Config.value(1)))
 @module.command("hello")
@@ -32,7 +32,7 @@ async def load(client):
 @module.on_ready
 async def ready(client):
     module.db["ready"] = True
-'''
+"""
 
 
 @pytest.fixture
@@ -84,8 +84,7 @@ async def test_real_dispatcher_and_tasks_return_to_baseline(app, source):
         assert not app.client.gate.matcher
         assert "elys.ext.hello" not in sys.modules
         # kv — отдельная задача write-behind, закрываем её в конце проверки.
-        assert not [t for t in asyncio.all_tasks() - baseline
-                    if "KV._flush_later" not in t.get_coro().__qualname__]
+        assert not [t for t in asyncio.all_tasks() - baseline if "KV._flush_later" not in t.get_coro().__qualname__]
         app.kv.ns("cfg:Hello")["count"] = 1
 
 
@@ -110,8 +109,9 @@ async def test_update_rollback_and_failed_update_restore_working_code(app, sourc
 async def test_package_relative_imports_reload_and_cleanup(app, tmp_path):
     package = tmp_path / "weather"
     package.mkdir()
-    (package / "__init__.py").write_text('from .part import VERSION\nfrom elys import Module\n'
-                                       'module = Module("Weather", version=VERSION)\n')
+    (package / "__init__.py").write_text(
+        'from .part import VERSION\nfrom elys import Module\nmodule = Module("Weather", version=VERSION)\n'
+    )
     (package / "part.py").write_text('VERSION = "1"\n')
     await app.loader.install(package, trusted=True)
     assert "elys.ext.weather.part" in sys.modules
@@ -147,8 +147,10 @@ async def test_conflict_and_failed_ready_leave_no_resources(app, source, tmp_pat
     assert set(app.modules) == {"Hello"}
     assert len(app.registry.entries) == len(app.client.dispatcher.groups) == 1
     assert "elys.ext.other" not in sys.modules
-    other.write_text('from elys import Module\nmodule = Module("Other")\n'
-                     '@module.on_ready\nasync def ready(client):\n    raise ValueError("ready")\n')
+    other.write_text(
+        'from elys import Module\nmodule = Module("Other")\n'
+        '@module.on_ready\nasync def ready(client):\n    raise ValueError("ready")\n'
+    )
     with pytest.raises(ValueError, match="ready"):
         await app.loader.install(other, trusted=True)
     assert set(app.modules) == {"Hello"}
@@ -169,7 +171,7 @@ async def test_trust_builtin_protection_and_path_validation(app, source):
 
 async def test_cancelled_load_restores_previous_module(app, source):
     await app.loader.install(source, trusted=True)
-    source.write_text(SOURCE + '\n@module.on_load\nasync def cancel(client):\n    raise asyncio.CancelledError\n')
+    source.write_text(SOURCE + "\n@module.on_load\nasync def cancel(client):\n    raise asyncio.CancelledError\n")
     with pytest.raises(asyncio.CancelledError):
         await app.loader.install(source, trusted=True)
     assert app.modules["Hello"].loaded
@@ -196,8 +198,10 @@ async def test_url_install_with_real_http(app):
 
 def test_ast_metadata_never_executes_code(tmp_path):
     path = tmp_path / "x.py"
-    path.write_text('raise RuntimeError("must not run")\nfrom elys import Module as M\n'
-                    'module = M("X", requires=["packaging>=24"], banner="https://example.org/a.png")')
+    path.write_text(
+        'raise RuntimeError("must not run")\nfrom elys import Module as M\n'
+        'module = M("X", requires=["packaging>=24"], banner="https://example.org/a.png")'
+    )
     assert metadata(path) == {"requires": ["packaging>=24"], "banner": "https://example.org/a.png"}
     path.write_text('from elys import Module\nm = Module("X", requires=__import__("os").getcwd())')
     with pytest.raises(LoadError, match="без вычислений"):
@@ -231,8 +235,10 @@ async def test_reload_uses_last_working_source_for_recovery(app, source):
 async def test_force_restores_conflicting_module_on_failure(app, source, tmp_path):
     await app.loader.install(source, trusted=True)
     other = tmp_path / "other.py"
-    other.write_text(SOURCE.replace('Module("Hello"', 'Module("Other"') +
-                     '\n@module.on_load\nasync def fail(client):\n    raise ValueError("load")\n')
+    other.write_text(
+        SOURCE.replace('Module("Hello"', 'Module("Other"')
+        + '\n@module.on_load\nasync def fail(client):\n    raise ValueError("load")\n'
+    )
     with pytest.raises(ValueError, match="load"):
         await app.loader.install(other, trusted=True, force=True)
     assert set(app.modules) == {"Hello"}
@@ -246,9 +252,11 @@ async def test_force_restores_conflicting_module_on_failure(app, source, tmp_pat
 
 
 async def test_module_can_unload_itself_without_cancelling_dispatcher(app, source):
-    source.write_text('from elys import Module\nmodule = Module("Self")\n'
-                      '@module.command("bye")\nasync def bye(client, message):\n'
-                      '    await module.app.loader.unload("Self")\n')
+    source.write_text(
+        'from elys import Module\nmodule = Module("Self")\n'
+        '@module.command("bye")\nasync def bye(client, message):\n'
+        '    await module.app.loader.unload("Self")\n'
+    )
     item = await app.loader.install(source, trusted=True)
     message = SimpleNamespace(text=".bye", caption=None, chat=None)
     task = item.spawn(app.router.get("bye").callback(app.client, message))

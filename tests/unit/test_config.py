@@ -5,12 +5,21 @@ from elys.storage.kv import KV
 
 
 def test_validation_and_secret_repr():
-    config = Config(key=Config.secret("private-value"), count=Config.value(1),
-                    units=Config.choice("metric", ["metric", "imperial"]), banner=Config.url())
+    config = Config(
+        key=Config.secret("private-value"),
+        count=Config.value(1),
+        units=Config.choice("metric", ["metric", "imperial"]),
+        banner=Config.url(),
+    )
     assert "private-value" not in repr(config)
     assert "private-value" not in repr(config.fields["key"])
-    for key, value in (("count", True), ("count", "1"), ("units", "wrong"),
-                       ("banner", "file:///tmp/a"), ("banner", "https://user:pass@example.org/a")):
+    for key, value in (
+        ("count", True),
+        ("count", "1"),
+        ("units", "wrong"),
+        ("banner", "file:///tmp/a"),
+        ("banner", "https://user:pass@example.org/a"),
+    ):
         with pytest.raises(ValueError):
             config[key] = value
     assert config["count"] == 1

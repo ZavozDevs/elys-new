@@ -5,15 +5,19 @@ module = Module("Menu", config=Config(count=Config.value(1, doc="Число в �
 
 async def increment(bot, query, data):
     module.config["count"] += 1
-    await module.app.inline.edit(query, f"<b>Счётчик: {module.config['count']}</b>",
-                                 [[Button("Ещё +1", increment, style="success")]])
+    await module.app.inline.edit(
+        query, f"<b>Счётчик: {module.config['count']}</b>", [[Button("Ещё +1", increment, style="success")]]
+    )
 
 
 @module.command("menu")
 async def menu(client, message):
     """Форма со счётчиком; настройка начального числа — через config Menu."""
-    await module.form(message, f"{{e:check}} <b>Счётчик: {module.config['count']}</b>",
-                      [[Button("Ещё +1", increment, style="success", icon="check")]])
+    await module.form(
+        message,
+        f"{{e:check}} <b>Счётчик: {module.config['count']}</b>",
+        [[Button("Ещё +1", increment, style="success", icon="check")]],
+    )
 
 
 @module.command("pages")

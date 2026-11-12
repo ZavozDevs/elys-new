@@ -41,10 +41,20 @@ def metadata(path: Path) -> dict:
         if isinstance(node, ast.Import):
             packages.update(a.asname or a.name for a in node.names if a.name == "elys")
     values = [node.value for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))]
-    calls = [node for node in values if isinstance(node, ast.Call) and (
-        (isinstance(node.func, ast.Name) and node.func.id in constructors) or
-        (isinstance(node.func, ast.Attribute) and node.func.attr == "Module" and
-        isinstance(node.func.value, ast.Name) and node.func.value.id in packages))]
+    calls = [
+        node
+        for node in values
+        if isinstance(node, ast.Call)
+        and (
+            (isinstance(node.func, ast.Name) and node.func.id in constructors)
+            or (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "Module"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id in packages
+            )
+        )
+    ]
     if len(calls) != 1:
         raise LoadError("В файле нужен один Module на верхнем уровне. Попроси автора проверить модуль.")
     result = {"requires": [], "banner": ""}
@@ -54,9 +64,11 @@ def metadata(path: Path) -> dict:
                 result[keyword.arg] = ast.literal_eval(keyword.value)
             except (ValueError, TypeError):
                 raise LoadError(f"{keyword.arg} должен быть задан явно, без вычислений.") from None
-    if not isinstance(result["requires"], (list, tuple)) or not all(
-        isinstance(item, str) for item in result["requires"]
-    ) or not isinstance(result["banner"], str):
+    if (
+        not isinstance(result["requires"], (list, tuple))
+        or not all(isinstance(item, str) for item in result["requires"])
+        or not isinstance(result["banner"], str)
+    ):
         raise LoadError("requires — список строк, banner — строка. Попроси автора исправить модуль.")
     return result
 
@@ -81,8 +93,15 @@ async def dependencies(requirements):
     if not missing:
         return
     process = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--", *missing,
-        stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--disable-pip-version-check",
+        "--",
+        *missing,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
     try:
         async with asyncio.timeout(180):
@@ -127,8 +146,11 @@ def _copy(source: Path, target: Path):
 def _contents(path: Path):
     if path.is_file():
         return path.read_bytes()
-    return {p.relative_to(path): p.read_bytes() for p in path.rglob("*")
-            if p.is_file() and p.suffix != ".pyc" and "__pycache__" not in p.parts}
+    return {
+        p.relative_to(path): p.read_bytes()
+        for p in path.rglob("*")
+        if p.is_file() and p.suffix != ".pyc" and "__pycache__" not in p.parts
+    }
 
 
 class Loader:
@@ -187,8 +209,12 @@ class Loader:
             module = self.find(vars(namespace), str(entry))
             if self.resolve(module.name):
                 raise LoadError(f"Модуль {module.name} уже загружен. Для обновления используй reload.")
-            conflicts = {existing.owner.name for command in module.commands for name in command.names
-                         if (existing := self.app.router.get(name)) is not None}
+            conflicts = {
+                existing.owner.name
+                for command in module.commands
+                for name in command.names
+                if (existing := self.app.router.get(name)) is not None
+            }
             if conflicts:
                 if not force:
                     names = ", ".join(c.name for c in module.commands)

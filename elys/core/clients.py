@@ -65,15 +65,13 @@ class ElysClient(Client):
         while True:
             r = await self.invoke(
                 raw.functions.messages.GetDialogs(
-                    offset_date=offset_date, offset_id=offset_id, offset_peer=offset_peer, limit=100, hash=0,
+                    offset_date=offset_date, offset_id=offset_id, offset_peer=offset_peer, limit=100, hash=0
                 ),
                 sleep_threshold=60,
             )
             chats = {chat.id: chat for chat in r.chats}
             messages = {
-                utils.get_peer_id(m.peer_id): m
-                for m in r.messages
-                if not isinstance(m, raw.types.MessageEmpty)
+                utils.get_peer_id(m.peer_id): m for m in r.messages if not isinstance(m, raw.types.MessageEmpty)
             }
             dialogs = [d for d in r.dialogs if isinstance(d, raw.types.Dialog)]
             if not dialogs:

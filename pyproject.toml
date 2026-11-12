@@ -32,6 +32,12 @@ target-version = "py311"
 line-length = 120
 extend-exclude = ["*.md"]
 
+[tool.ruff.format]
+skip-magic-trailing-comma = true  # вместительные строки: вызов схлопывается в одну, если влезает в 120
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false  # пара к skip-magic-trailing-comma: импорты тоже схлопываются
+
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PERF"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # кириллица в строках и комментариях

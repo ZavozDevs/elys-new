@@ -23,11 +23,17 @@ TITLE = "Elys"
 GENERAL = "👋 Начало"
 UNAVAILABLE = (ChannelInvalid, ChannelPrivate, PeerIdInvalid, UserNotParticipant)
 TOPICS = {
-    "errors": ("⚠️ Ошибки", "Здесь появляются сообщения о неполадках. Подробности можно передать автору модуля. "
-               "Если ошибок нет — ничего делать не нужно."),
+    "errors": (
+        "⚠️ Ошибки",
+        "Здесь появляются сообщения о неполадках. Подробности можно передать автору модуля. "
+        "Если ошибок нет — ничего делать не нужно.",
+    ),
     "updates": ("🔔 Обновления", "Здесь будут новости о новых версиях Elys. Сейчас ничего делать не нужно."),
-    "backups": ("💾 Копии", "Здесь будут резервные копии и инструкции по восстановлению. "
-                "Не пересылай копии другим: в них могут быть личные данные."),
+    "backups": (
+        "💾 Копии",
+        "Здесь будут резервные копии и инструкции по восстановлению. "
+        "Не пересылай копии другим: в них могут быть личные данные.",
+    ),
 }
 
 
@@ -48,8 +54,11 @@ class Forum:
         user, found = self.app.client, []
         for chat_id in dict.fromkeys(await user.owned_forums(TITLE)):
             try:
-                bots = [m.user.id async for m in user.get_chat_members(chat_id)
-                        if m.user and m.user.is_bot and not m.user.is_deleted]
+                bots = [
+                    m.user.id
+                    async for m in user.get_chat_members(chat_id)
+                    if m.user and m.user.is_bot and not m.user.is_deleted
+                ]
             except RPCError:
                 bots = []
             found.append((chat_id, bots))
@@ -102,8 +111,9 @@ class Forum:
         if not self.chat_id:
             await self._adopt(skip)
         if not self.chat_id:
-            chat = await user.create_supergroup(TITLE, "Личный помощник: команды, настройки и уведомления",
-                                                is_forum=True)
+            chat = await user.create_supergroup(
+                TITLE, "Личный помощник: команды, настройки и уведомления", is_forum=True
+            )
             self.state = {"id": chat.id, "topics": {}, "intros": {}}
             await self._save()
         if not self.state.get("installed"):
@@ -111,9 +121,13 @@ class Forum:
                 await user.unban_chat_member(self.chat_id, bot.me.id)
             with contextlib.suppress(UserAlreadyParticipant):
                 await user.add_chat_members(self.chat_id, bot.me.username)
-        await user.promote_chat_member(self.chat_id, bot.me.username, privileges=ChatPrivileges(
-            can_manage_topics=True, can_pin_messages=True, can_delete_messages=True, can_change_info=True,
-        ))
+        await user.promote_chat_member(
+            self.chat_id,
+            bot.me.username,
+            privileges=ChatPrivileges(
+                can_manage_topics=True, can_pin_messages=True, can_delete_messages=True, can_change_info=True
+            ),
+        )
         self.state["installed"] = True
         await self._save()
         # Получение чата ботом проверяет доступ и прогревает его peer-кэш.
@@ -136,7 +150,8 @@ class Forum:
                 await self._save()
             if key not in self.state["intros"]:
                 message = await self._find_intro(topic_id, intro) or await bot.send_message(
-                    self.chat_id, intro, message_thread_id=topic_id, disable_notification=True)
+                    self.chat_id, intro, message_thread_id=topic_id, disable_notification=True
+                )
                 self.state["intros"][key] = message.id
                 await self._save()
             pinned = self.state.setdefault("pinned", {})
@@ -150,8 +165,9 @@ class Forum:
     async def _find_intro(self, topic_id, intro):
         # Вводное сообщение могло остаться в подхваченной теме: не дублируем его.
         try:
-            async for message in self.app.client.search_messages(self.chat_id, query=intro[:40],
-                                                                 top_msg_id=topic_id, limit=5):
+            async for message in self.app.client.search_messages(
+                self.chat_id, query=intro[:40], top_msg_id=topic_id, limit=5
+            ):
                 if (message.text or "").startswith(intro[:40]):
                     return message
         except Exception as error:  # поиск необязателен: при сбое парсера wzgram просто пришлём вводное заново
@@ -169,8 +185,11 @@ class Forum:
         if self.available:
             try:
                 return await self.app.bot.send_message(
-                    self.chat_id, text, message_thread_id=self.state["topics"].get(topic),
-                    disable_notification=topic != "updates", **kwargs,
+                    self.chat_id,
+                    text,
+                    message_thread_id=self.state["topics"].get(topic),
+                    disable_notification=topic != "updates",
+                    **kwargs,
                 )
             except (*UNAVAILABLE, ChatWriteForbidden, ChatAdminRequired):
                 self.available = False

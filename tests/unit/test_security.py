@@ -25,8 +25,16 @@ def test_roles():
 
 
 def test_rules_deny_beats_allow_and_command_beats_module():
-    s = security(roles={"5": ["sudo"]}, rules=[[5, "cmd:e", False], [6, "mod:mod", True], [6, "cmd:sudo", False],
-                                              [-1, "cmd:ping", True], [-2, "mod:mod", False]])
+    s = security(
+        roles={"5": ["sudo"]},
+        rules=[
+            [5, "cmd:e", False],
+            [6, "mod:mod", True],
+            [6, "cmd:sudo", False],
+            [-1, "cmd:ping", True],
+            [-2, "mod:mod", False],
+        ],
+    )
     assert not s.allowed(5, 5, EVAL) and s.allowed(5, 5, PING)
     assert s.allowed(6, 6, PING) and not s.allowed(6, 6, SUDO)
     assert s.allowed(9, -1, PING) and not s.allowed(9, -1, EVAL)

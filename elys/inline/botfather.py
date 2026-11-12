@@ -83,6 +83,7 @@ async def create_bot_in_chat(client, username, *, reply_wait=20, poll=1.0):
     с BotFather, поэтому все сообщения после стартовой точки (наши и его) стираются у обоих.
     Тексты ответов BotFather не разбираются: нужен только токен в последнем ответе.
     """
+
     async def history():
         return [m async for m in client.get_chat_history("BotFather", limit=20)]
 
@@ -114,8 +115,10 @@ async def create_bot_in_chat(client, username, *, reply_wait=20, poll=1.0):
                 await client.delete_messages("BotFather", ids, revoke=True)
         except Exception:
             # Без текста исключения: оно может содержать данные чата.
-            log.warning("Не удалось удалить переписку с BotFather — удали её вручную: в ней токен бота.",
-                        extra={"no_telegram": True})
+            log.warning(
+                "Не удалось удалить переписку с BotFather — удали её вручную: в ней токен бота.",
+                extra={"no_telegram": True},
+            )
 
 
 class BotFatherWebApp:
@@ -136,8 +139,13 @@ class BotFatherWebApp:
     def _check_url(self, url, path):
         try:
             parts, origin = urlsplit(url), urlsplit(self.ORIGIN)
-            valid = (parts.scheme == origin.scheme and parts.netloc == origin.netloc
-                     and parts.path.rstrip("/") == path and not parts.username and not parts.password)
+            valid = (
+                parts.scheme == origin.scheme
+                and parts.netloc == origin.netloc
+                and parts.path.rstrip("/") == path
+                and not parts.username
+                and not parts.password
+            )
         except (TypeError, ValueError):
             valid = False
         if not valid:
@@ -145,9 +153,7 @@ class BotFatherWebApp:
 
     def _read(self, url, data=None, *, bootstrap=False):
         self._check_url(url, self.PATH + "/api" if data is not None else urlsplit(url).path.rstrip("/"))
-        request = Request(url, data=data, headers={
-            "User-Agent": "Elys", "Origin": self.ORIGIN, "Referer": self.base,
-        })
+        request = Request(url, data=data, headers={"User-Agent": "Elys", "Origin": self.ORIGIN, "Referer": self.base})
         try:
             try:
                 response = self._opener.open(request, timeout=20)
@@ -175,8 +181,9 @@ class BotFatherWebApp:
         except (TypeError, ValueError):
             raise BotSetupError("Неизвестный ответ Web App BotFather. Настройка остановлена.") from None
         if not isinstance(result, dict) or result.get("error") or not result.get("ok"):
-            raise BotSetupError("BotFather не подтвердил действие. Проверь ограничения в его Web App "
-                                "и перезапусти Elys.")
+            raise BotSetupError(
+                "BotFather не подтвердил действие. Проверь ограничения в его Web App и перезапусти Elys."
+            )
         return result
 
     async def authenticate(self):
@@ -216,8 +223,9 @@ class BotFatherWebApp:
         return found[0] if found else None
 
     async def create_bot(self, username):
-        result = await asyncio.to_thread(self._request, "createBot", title=BOT_TITLE,
-                                         about="", username=username, userpic="")
+        result = await asyncio.to_thread(
+            self._request, "createBot", title=BOT_TITLE, about="", username=username, userpic=""
+        )
         try:
             identity = int(result["bot_id"])
             if identity <= 0:
@@ -236,8 +244,9 @@ class BotFatherWebApp:
 
     async def enable_inline(self, identity):
         await asyncio.to_thread(self._request, "changeSettings", bid=identity, **{"settings[inline]": "1"})
-        await asyncio.to_thread(self._request, "changeSettings", bid=identity,
-                                **{"settings[inph]": "Elys: команды и настройки"})
+        await asyncio.to_thread(
+            self._request, "changeSettings", bid=identity, **{"settings[inph]": "Elys: команды и настройки"}
+        )
         # Inline Feedback 100%: бот получает inline_message_id отправленной формы и может её править.
         # В списке Web App 1 = 100%, 1000 = 0.1%.
         await asyncio.to_thread(self._request, "changeSettings", bid=identity, **{"settings[infdb]": "1"})

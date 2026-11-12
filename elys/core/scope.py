@@ -53,12 +53,7 @@ class Scope:
         # вид по типу хендлера, если не задан явно
         if self.kinds:
             return self
-        return Scope(
-            kinds=1 << edited,
-            directions=self.directions,
-            chat_types=self.chat_types,
-            chat_ids=self.chat_ids,
-        )
+        return Scope(kinds=1 << edited, directions=self.directions, chat_types=self.chat_types, chat_ids=self.chat_ids)
 
     def keys(self) -> frozenset[int]:
         return frozenset(

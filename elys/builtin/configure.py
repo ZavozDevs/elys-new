@@ -30,8 +30,11 @@ def make_token_btn(text: str, action: str, mod: str, key: str, **kwargs) -> Butt
 
 def languages(app) -> dict[str, dict]:
     catalog = getattr(app, "i18n", None)
-    return catalog.languages() if catalog is not None else {"ru": {"name": "Русский", "flag": ""},
-                                                            "en": {"name": "English", "flag": ""}}
+    return (
+        catalog.languages()
+        if catalog is not None
+        else {"ru": {"name": "Русский", "flag": ""}, "en": {"name": "English", "flag": ""}}
+    )
 
 
 def language_name(app, code: str) -> str:
@@ -158,10 +161,14 @@ def screen(route):
     kind, *args = route
     if kind == "home":
         count = {s: sum(bool(m.config) and scope_of(m) == s for m in app.modules.values()) for s in ("system", "user")}
-        return (t("home"),
-                [[go(t("core"), ("core",), style="primary", icon="gear")],
-                 [go(t(s, n=count[s]), ("modules", s, 0), icon="modules") for s in ("system", "user")],
-                 [Button(t("close"), close, style="danger", icon="cross")]])
+        return (
+            t("home"),
+            [
+                [go(t("core"), ("core",), style="primary", icon="gear")],
+                [go(t(s, n=count[s]), ("modules", s, 0), icon="modules") for s in ("system", "user")],
+                [Button(t("close"), close, style="danger", icon="cross")],
+            ],
+        )
     if kind == "core":
         items = [go(t(f"name.{key}"), ("core_field", key)) for key in CORE_NAMES]
         return t("core_text"), [*(items[i : i + 2] for i in range(0, len(items), 2)), back(("home",))]
@@ -173,77 +180,129 @@ def screen(route):
             rows = [[make_token_btn(t("change"), "core", "core", "prefixes", style="primary")]]
         elif key == "start_banner":
             now = shown(app.kv.ns("core").get("start_banner", START_BANNER))
-            rows = [[make_token_btn(t("set_link"), "core", "core", "start_banner", style="primary"),
-                     Button(t("remove_banner"), set_core, (key, ""))]]
+            rows = [
+                [
+                    make_token_btn(t("set_link"), "core", "core", "start_banner", style="primary"),
+                    Button(t("remove_banner"), set_core, (key, "")),
+                ]
+            ]
         elif key == "language":
             now = language_name(app, app.language)
-            items = [Button(language_name(app, code), set_core, (key, code),
-                            style="success" if app.language == code else "default")
-                     for code in languages(app)]
+            items = [
+                Button(
+                    language_name(app, code),
+                    set_core,
+                    (key, code),
+                    style="success" if app.language == code else "default",
+                )
+                for code in languages(app)
+            ]
             rows = [items[i : i + 2] for i in range(0, len(items), 2)]
         elif key == "banners":
             now = shown(app.banners_enabled)
-            rows = [[Button(t(s), set_core, (key, v), style="success" if app.banners_enabled == v else "default")
-                     for s, v in (("btn_on", True), ("btn_off", False))]]
+            rows = [
+                [
+                    Button(t(s), set_core, (key, v), style="success" if app.banners_enabled == v else "default")
+                    for s, v in (("btn_on", True), ("btn_off", False))
+                ]
+            ]
         else:
-            items = [Button(t("remove_alias", name=name, command=cmd), remove_alias, name)
-                     for name, cmd in app.router.aliases.items()]
+            items = [
+                Button(t("remove_alias", name=name, command=cmd), remove_alias, name)
+                for name, cmd in app.router.aliases.items()
+            ]
             rows = paged(items, ("core_field", "aliases"), args[1] if len(args) > 1 else 0, cols=1)
             rows.append([make_token_btn(t("add_alias"), "core", "core", "aliases", style="primary")])
-        text = (t("field_title", name=f"Elys › {t(f'name.{key}')}") + (t("now", value=now) + "\n\n" if now else "")
-                + f"<blockquote expandable>{t(f'{key}_hint')}</blockquote>\n\n" + t("usage", module="core", field=key))
+        text = (
+            t("field_title", name=f"Elys › {t(f'name.{key}')}")
+            + (t("now", value=now) + "\n\n" if now else "")
+            + f"<blockquote expandable>{t(f'{key}_hint')}</blockquote>\n\n"
+            + t("usage", module="core", field=key)
+        )
         return text, [*rows, back(("core",))]
     if kind == "modules":
         scope = args[0]
         if scope not in ("system", "user"):
             raise ValueError("неизвестный раздел модулей")
-        items = sorted((m for m in app.modules.values() if m.config and is_system(m) == (scope == "system")),
-                       key=lambda m: m.name.casefold())
+        items = sorted(
+            (m for m in app.modules.values() if m.config and is_system(m) == (scope == "system")),
+            key=lambda m: m.name.casefold(),
+        )
         btns = [go(item.name, ("module", item.name, 0)) for item in items]
-        return (t(f"{scope}_title") + ("" if items else "\n\n" + t("no_modules")),
-                [*paged(btns, ("modules", scope), args[1]), back(("home",))])
+        return (
+            t(f"{scope}_title") + ("" if items else "\n\n" + t("no_modules")),
+            [*paged(btns, ("modules", scope), args[1]), back(("home",))],
+        )
     item = target(args[0])
     if kind == "module":
         about = item.t("about", default="")
         # • — значение изменено; True * " •" == " •"
-        btns = [go(label(item, key)[:45] + " •" * (item.config[key] != field.default), ("field", item.name, key, 0))
-                for key, field in item.config.fields.items()]
-        return (t("module_title", name=item.name, about=html.Html(f"\n<i>{about}</i>" if about else "")),
-                [*paged(btns, ("module", item.name), args[1]), back(("modules", scope_of(item), 0))])
+        btns = [
+            go(label(item, key)[:45] + " •" * (item.config[key] != field.default), ("field", item.name, key, 0))
+            for key, field in item.config.fields.items()
+        ]
+        return (
+            t("module_title", name=item.name, about=html.Html(f"\n<i>{about}</i>" if about else "")),
+            [*paged(btns, ("module", item.name), args[1]), back(("modules", scope_of(item), 0))],
+        )
     key = args[1]
     field = item.config.fields[key]
     route = ("field", item.name, key, 0)
     title = t("field_title", name=f"{item.name} › {label(item, key)}")
     if kind == "reset":
-        return (title + t("reset_question", value=shown(field.default, secret=field.secret)),
-                [[Button(t("reset"), reset, (item.name, key), style="danger"), go(t("cancel"), route)]])
+        return (
+            title + t("reset_question", value=shown(field.default, secret=field.secret)),
+            [[Button(t("reset"), reset, (item.name, key), style="danger"), go(t("cancel"), route)]],
+        )
     # необязательные ключи пака модуля: подсказка и подпись пустого значения
     hint, empty = (item.t(f"cfg.{key}.{part}", default="") for part in ("hint", "empty"))
-    text = (title
-            + t("values", current=(item.config[key] == "" and empty) or shown(item.config[key], secret=field.secret),
-                initial=(field.default == "" and empty) or shown(field.default, secret=field.secret))
-            + (f"\n\n<blockquote expandable>{hint}</blockquote>" if hint else "")
-            + "\n\n" + t("usage", module=item.name, field=key))
+    text = (
+        title
+        + t(
+            "values",
+            current=(item.config[key] == "" and empty) or shown(item.config[key], secret=field.secret),
+            initial=(field.default == "" and empty) or shown(field.default, secret=field.secret),
+        )
+        + (f"\n\n<blockquote expandable>{hint}</blockquote>" if hint else "")
+        + "\n\n"
+        + t("usage", module=item.name, field=key)
+    )
     if field.choices:
-        btns = [Button(t("choice", n=i + 1) if field.secret else str(v)[:50], set_field, (item.name, key, v),
-                       style="success" if item.config[key] == v else "default")
-                for i, v in enumerate(field.choices)]
+        btns = [
+            Button(
+                t("choice", n=i + 1) if field.secret else str(v)[:50],
+                set_field,
+                (item.name, key, v),
+                style="success" if item.config[key] == v else "default",
+            )
+            for i, v in enumerate(field.choices)
+        ]
         rows = paged(btns, ("field", item.name, key), args[2])
     elif type(field.default) is bool:
-        rows = [[Button(t(s), set_field, (item.name, key, v), style="success" if item.config[key] == v else "default")
-                 for s, v in (("btn_on", True), ("btn_off", False))]]
+        rows = [
+            [
+                Button(t(s), set_field, (item.name, key, v), style="success" if item.config[key] == v else "default")
+                for s, v in (("btn_on", True), ("btn_off", False))
+            ]
+        ]
     elif isinstance(field.default, (int, float)):
-        rows = [[Button(f"{n:+}", step_field, (item.name, key, n)) for n in (-10, -1, 1, 10)],
-                [make_token_btn(t("enter_number"), "set", item.name, key, style="primary")]]
+        rows = [
+            [Button(f"{n:+}", step_field, (item.name, key, n)) for n in (-10, -1, 1, 10)],
+            [make_token_btn(t("enter_number"), "set", item.name, key, style="primary")],
+        ]
     elif isinstance(field.default, list):
         item_btns = [Button(str(v)[:25], remove_item, (item.name, key, v), style="danger") for v in item.config[key]]
         rows = paged(item_btns, ("field", item.name, key), args[2])
-        rows.append([make_token_btn(t("add"), "add", item.name, key, style="primary")]
-                    + [Button(t("clear"), set_field, (item.name, key, []))] * bool(item.config[key]))
+        rows.append(
+            [make_token_btn(t("add"), "add", item.name, key, style="primary")]
+            + [Button(t("clear"), set_field, (item.name, key, []))] * bool(item.config[key])
+        )
     else:
         clearable = type(field.default) is str and bool(item.config[key])
-        rows = [[make_token_btn(t("change"), "set", item.name, key, style="primary")]
-                + [Button(t("clear"), set_field, (item.name, key, ""))] * clearable]
+        rows = [
+            [make_token_btn(t("change"), "set", item.name, key, style="primary")]
+            + [Button(t("clear"), set_field, (item.name, key, ""))] * clearable
+        ]
     if item.config[key] != field.default:
         rows.append([go(t("reset"), ("reset", item.name, key), style="danger")])
     return text, [*rows, back(("module", item.name, 0))]

@@ -8,6 +8,7 @@ START_BANNER = "https://raw.githubusercontent.com/ZavozDevs/assets/main/elys_use
 
 module = Module("Welcome")
 
+
 @module.on_ready
 async def greet(client: Client) -> None:
     app = module.app
@@ -17,10 +18,12 @@ async def greet(client: Client) -> None:
     if forum.state.get("welcome"):
         return
     text = module.t("text")
-    markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton(module.t("commands"), callback_data="elys:commands", style=ButtonStyle.PRIMARY)],
-        [InlineKeyboardButton(module.t("settings"), callback_data="elys:settings", style=ButtonStyle.SUCCESS)],
-    ])
+    markup = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(module.t("commands"), callback_data="elys:commands", style=ButtonStyle.PRIMARY)],
+            [InlineKeyboardButton(module.t("settings"), callback_data="elys:settings", style=ButtonStyle.SUCCESS)],
+        ]
+    )
     banner = app.kv.ns("core").get("start_banner", START_BANNER)
     if banner and hasattr(app.bot, "send_photo"):
         message = await app.bot.send_photo(forum.chat_id, banner, caption=text, reply_markup=markup)
@@ -35,13 +38,15 @@ async def greet(client: Client) -> None:
 async def commands(bot, query):
     app, p = module.app, module.app.router.prefixes[0]
     lines = [html.code(p + command.name) for item in app.modules.values() for command in item.commands]
-    pages = [module.t("page", lines=html.Html("\n".join(lines[i:i + 25]))) for i in range(0, len(lines), 25)]
+    pages = [module.t("page", lines=html.Html("\n".join(lines[i : i + 25]))) for i in range(0, len(lines), 25)]
+
     # Форумные сообщения отправляет бот; страницы переключаются в том же сообщении.
     async def page(bot, pressed, index):
         await app.inline.edit(pressed, pages[index], buttons(index))
 
     def buttons(index):
         from elys.inline.list import page_buttons
+
         return page_buttons(index, len(pages), page)
 
     await app.inline.bot_form(module, query.message.chat.id, pages[0], buttons(0))

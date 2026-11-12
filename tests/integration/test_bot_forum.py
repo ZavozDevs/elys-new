@@ -25,7 +25,10 @@ async def test_bot_service_start_cleanup_and_private_session(app, monkeypatch, t
     handlers = []
     bot = SimpleNamespace(
         me=SimpleNamespace(id=99 if failure == "identity" else 123456, is_bot=True),
-        is_initialized=True, start=AsyncMock(), stop=AsyncMock(), storage=SimpleNamespace(database=database),
+        is_initialized=True,
+        start=AsyncMock(),
+        stop=AsyncMock(),
+        storage=SimpleNamespace(database=database),
         add_handler=lambda handler, group: handlers.append((handler, group)),
     )
     monkeypatch.setattr(bot_module, "BotClient", lambda *a, **kw: bot)
@@ -50,8 +53,10 @@ async def test_bot_service_start_cleanup_and_private_session(app, monkeypatch, t
 
 
 def bot_for(app):
-    bot = SimpleNamespace(me=SimpleNamespace(id=123456, username="elys_test_bot"),
-                          send_message=AsyncMock(return_value=SimpleNamespace(id=12)))
+    bot = SimpleNamespace(
+        me=SimpleNamespace(id=123456, username="elys_test_bot"),
+        send_message=AsyncMock(return_value=SimpleNamespace(id=12)),
+    )
     app.bot = bot
     service = BotService(app)
     service.client = bot
@@ -65,11 +70,12 @@ def bot_for(app):
 async def test_start_probe_owner_only_cleanup_and_forum_link(app):
     service, bot = bot_for(app)
     app.forum = SimpleNamespace(url="https://t.me/c/77/1")
+
     async def send(peer, text):
         assert peer == bot.me.username and text == "/start"
-        await service._private(bot, SimpleNamespace(from_user=app.client.me, text=text,
-                                                    chat=SimpleNamespace(id=1)))
+        await service._private(bot, SimpleNamespace(from_user=app.client.me, text=text, chat=SimpleNamespace(id=1)))
         return SimpleNamespace(id=11)
+
     app.client.send_message = send
     await service.verify()
     app.client.delete_messages.assert_awaited_once_with(bot.me.username, [11, 12], revoke=True)
@@ -83,16 +89,19 @@ async def test_start_probe_owner_only_cleanup_and_forum_link(app):
 async def test_private_fallback_unblocks_and_reprobes(app):
     service, bot = bot_for(app)
     calls = []
+
     async def send_bot(peer, text, **kwargs):
         calls.append(text)
         if len(calls) == 1:
             raise UserIsBlocked
         return SimpleNamespace(id=12)
+
     bot.send_message = send_bot
+
     async def send_user(peer, text):
-        await service._private(bot, SimpleNamespace(from_user=app.client.me, text=text,
-                                                    chat=SimpleNamespace(id=1)))
+        await service._private(bot, SimpleNamespace(from_user=app.client.me, text=text, chat=SimpleNamespace(id=1)))
         return SimpleNamespace(id=11)
+
     app.client.send_message = send_user
     result = await service.send_private("Важное сообщение")
     assert result.id == 12
@@ -103,9 +112,11 @@ async def test_private_fallback_unblocks_and_reprobes(app):
 
 async def test_failed_probe_does_not_mark_verified_and_deletes_request(app):
     service, bot = bot_for(app)
+
     async def send(peer, text):
         service._probe.set_exception(TimeoutError())
         return SimpleNamespace(id=11)
+
     app.client.send_message = send
     with pytest.raises(BotSetupError, match="10 секунд"):
         await service.verify()
@@ -117,38 +128,52 @@ def forum_transport(app):
     # topics: {id чата: {id темы: название}}; forums — диалоги владельца; members — боты-участники по чатам.
     topics, forums, members, intros = {}, [], {}, {}
     ids = iter([-10077, -10088])
+
     async def create_group(title, about, is_forum=False):
         chat = SimpleNamespace(id=next(ids), title=title, is_forum=True, is_creator=True)
         forums.append(chat)
         return chat
+
     app.client.create_supergroup = AsyncMock(side_effect=create_group)
+
     async def owned_forums(title):
         return [c.id for c in forums if c.is_forum and c.is_creator and c.title == title]
+
     app.client.owned_forums = owned_forums
+
     async def chat_members(chat_id):
         for identity in members.get(chat_id, []):
             yield SimpleNamespace(user=SimpleNamespace(id=identity, is_bot=True, is_deleted=False))
+
     app.client.get_chat_members = chat_members
+
     async def search(chat_id, query="", top_msg_id=None, limit=0):
         for message in intros.get((chat_id, top_msg_id), []):
             yield message
+
     app.client.search_messages = search
     app.client.get_chat = AsyncMock(return_value=SimpleNamespace(is_forum=True))
     app.client.get_chat_member = AsyncMock(return_value=SimpleNamespace(status=ChatMemberStatus.ADMINISTRATOR))
     app.client.add_chat_members = AsyncMock()
     app.client.promote_chat_member = AsyncMock()
     app.client.unban_chat_member = AsyncMock()
+
     async def get_topics(chat_id):
         for identity, title in topics.setdefault(chat_id, {1: "General"}).items():
             yield SimpleNamespace(id=identity, title=title)
+
     app.client.get_forum_topics = get_topics
+
     async def create_topic(chat_id, title):
         values = topics.setdefault(chat_id, {1: "General"})
         identity = max(values) + 1
         values[identity] = title
         return SimpleNamespace(id=identity)
+
     app.bot = SimpleNamespace(
-        me=SimpleNamespace(id=2, username="bot"), get_chat=AsyncMock(), edit_general_forum_topic=AsyncMock(),
+        me=SimpleNamespace(id=2, username="bot"),
+        get_chat=AsyncMock(),
+        edit_general_forum_topic=AsyncMock(),
         create_forum_topic=AsyncMock(side_effect=create_topic),
         send_message=AsyncMock(return_value=SimpleNamespace(id=20)),
         pin_chat_message=AsyncMock(),
@@ -257,9 +282,11 @@ async def test_forum_delivery_falls_back_and_detects_extra_members(app):
     assert (await forum.send("errors", "Ошибка")).id == 30
     assert not forum.available
     app.bot_service.send_private.assert_awaited_once_with("Ошибка", disable_notification=True)
+
     async def members(chat_id):
         for identity in [1, 2, 3]:
             yield SimpleNamespace(user=SimpleNamespace(id=identity))
+
     app.client.get_chat_members = members
     assert not await forum.is_private()
 
@@ -271,8 +298,16 @@ async def test_dead_token_forgets_bot_sets_session_aside_and_finds_bot_again(app
     from elys.inline import bot as bot_module
 
     core = app.kv.ns("core")
-    core.update({"bot_token": TOKEN, "bot_inline_token": TOKEN, "bot_feedback": TOKEN, "bot_id": 123456,
-                 "bot_username": "gone_bot", "bot_verified": 123456})
+    core.update(
+        {
+            "bot_token": TOKEN,
+            "bot_inline_token": TOKEN,
+            "bot_feedback": TOKEN,
+            "bot_id": 123456,
+            "bot_username": "gone_bot",
+            "bot_verified": 123456,
+        }
+    )
     session = app.settings.data_dir / "bot.session"
     session.write_text("old")
     fresh = "654321:" + "y" * 35
@@ -282,8 +317,12 @@ async def test_dead_token_forgets_bot_sets_session_aside_and_finds_bot_again(app
         tokens.append(bot_token)
         broken = len(tokens) == 1
         client = SimpleNamespace(
-            me=SimpleNamespace(id=int(bot_token.split(":")[0]), is_bot=True), is_initialized=True,
-            stop=AsyncMock(), storage=SimpleNamespace(database=session), add_handler=lambda *a: None)
+            me=SimpleNamespace(id=int(bot_token.split(":")[0]), is_bot=True),
+            is_initialized=True,
+            stop=AsyncMock(),
+            storage=SimpleNamespace(database=session),
+            add_handler=lambda *a: None,
+        )
         client.start = AsyncMock(side_effect=getattr(errors, error) if broken else None)
         return client
 

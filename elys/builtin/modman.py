@@ -62,8 +62,11 @@ async def load(client: Client, message: Message):
         need(len(args) == 1, "one_name")
         return await perform(message, app.loader.load(args[0]))
     names, sources = [item.name for item in app.modules.values()], app.loader.sources
-    groups = {"builtin": [n for n in names if n not in sources], "installed": [n for n in names if n in sources],
-              "disabled": app.kv.ns("core").get("disabled_modules", [])}
+    groups = {
+        "builtin": [n for n in names if n not in sources],
+        "installed": [n for n in names if n in sources],
+        "disabled": app.kv.ns("core").get("disabled_modules", []),
+    }
     lines = [t("list")]
     for key, group in groups.items():
         if group:

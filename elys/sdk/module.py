@@ -54,9 +54,17 @@ class Host(Protocol):
 
 
 class Module:
-    def __init__(self, name: str, *, version: str = "", author: str = "",
-                 requires: Iterable[str] = (), config: Config | None = None,
-                 strings: dict | None = None, banner: str = "") -> None:
+    def __init__(
+        self,
+        name: str,
+        *,
+        version: str = "",
+        author: str = "",
+        requires: Iterable[str] = (),
+        config: Config | None = None,
+        strings: dict | None = None,
+        banner: str = "",
+    ) -> None:
         if not name or not name.strip():
             raise ValueError("модулю нужно имя")
         self.name, self.version, self.author = name, version, author
@@ -108,8 +116,14 @@ class Module:
         catalog = getattr(app, "i18n", None) or default_catalog
         if router := getattr(app, "router", None):
             values.setdefault("p", router.prefixes[0])
-        return catalog.t(key, language=getattr(app, "language", "ru"), premium=bool(getattr(app, "premium", False)),
-                         sections=(self.name.lower(), "core"), extra=self.strings, **values)
+        return catalog.t(
+            key,
+            language=getattr(app, "language", "ru"),
+            premium=bool(getattr(app, "premium", False)),
+            sections=(self.name.lower(), "core"),
+            extra=self.strings,
+            **values,
+        )
 
     # декораторы
 
@@ -117,11 +131,7 @@ class Module:
         def decorator(func: F) -> F:
             self._commands.append(
                 Command(
-                    name.lower(),
-                    self._guard_command(func),
-                    self,
-                    tuple(a.lower() for a in aliases),
-                    frozenset(roles),
+                    name.lower(), self._guard_command(func), self, tuple(a.lower() for a in aliases), frozenset(roles)
                 )
             )
             return func
@@ -144,24 +154,31 @@ class Module:
         def decorator(func):
             self._handlers.append((kind(self._guard_watcher(func), filters), None))
             return func
+
         return decorator
 
     def callback(self, prefix: str):
         async def matches(_, client, query):
-            return (query.from_user is not None and query.from_user.id == self.client.me.id
-                    and isinstance(query.data, str) and query.data.startswith(prefix))
+            return (
+                query.from_user is not None
+                and query.from_user.id == self.client.me.id
+                and isinstance(query.data, str)
+                and query.data.startswith(prefix)
+            )
+
         return self._bot_watcher(CallbackQueryHandler, filters_api.create(matches))
 
     def inline(self, query: str):
         async def matches(_, client, update):
-            return (update.from_user is not None and update.from_user.id == self.client.me.id
-                    and update.query == query)
+            return update.from_user is not None and update.from_user.id == self.client.me.id and update.query == query
+
         return self._bot_watcher(InlineQueryHandler, filters_api.create(matches))
 
     def _bot_watcher(self, kind, filters):
         def decorator(func):
             self._bot_handlers.append(kind(self._guard_watcher(func), filters))
             return func
+
         return decorator
 
     def loop(self, interval: float, *, autostart: bool = False):
@@ -169,6 +186,7 @@ class Module:
             loop = Loop(self, func, interval, autostart)
             self._loops.append(loop)
             return loop
+
         return decorator
 
     def on_ready(self, func: Hook) -> Hook:
@@ -292,14 +310,17 @@ class Module:
                 if self.loaded:
                     raise
                 return None
+
         return handler
 
     def _watcher(self, kind: type[Handler], filters: Filter | None, scope: Scope | None, *, edited: bool):
         def decorator(func: F) -> F:
             self.listens_all |= scope is None
-            self._handlers.append((kind(self._guard_watcher(func), filters),
-                                   (scope or Scope.ALL).default_kind(edited=edited)))
+            self._handlers.append(
+                (kind(self._guard_watcher(func), filters), (scope or Scope.ALL).default_kind(edited=edited))
+            )
             return func
+
         return decorator
 
     def _guard_command(self, func: F) -> Callable[[Client, Message], Awaitable[None]]:

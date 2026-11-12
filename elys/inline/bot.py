@@ -147,22 +147,37 @@ class BotService:
     async def _connect(self, token):
         settings = self.app.settings
         self.client = BotClient(
-            "bot", api_id=settings.api_id, api_hash=settings.api_hash, bot_token=token,
-            workdir=settings.data_dir, parse_mode=ParseMode.HTML, skip_updates=True,
+            "bot",
+            api_id=settings.api_id,
+            api_hash=settings.api_hash,
+            bot_token=token,
+            workdir=settings.data_dir,
+            parse_mode=ParseMode.HTML,
+            skip_updates=True,
             storage_engine=SafeSQLiteStorage("bot", workdir=settings.data_dir),
-            fetch_replies=False, fetch_topics=False, fetch_stories=False, fetch_stickers=False,
-            auto_no_updates=True, rate_limits=settings.rate_limits,
+            fetch_replies=False,
+            fetch_topics=False,
+            fetch_stories=False,
+            fetch_stickers=False,
+            auto_no_updates=True,
+            rate_limits=settings.rate_limits,
         )
         try:
             try:
                 await self.client.start()
             except (AccessTokenExpired, AccessTokenInvalid, UserDeactivated):
                 # Удалённый бот отвечает на GetState как USER_DEACTIVATED, а не ACCESS_TOKEN_INVALID.
-                raise _StaleBot("Telegram не принимает токен бота-помощника. Проверь в @BotFather, "
-                                "что бот существует. Нужна повторная настройка доступа к боту.", True) from None
+                raise _StaleBot(
+                    "Telegram не принимает токен бота-помощника. Проверь в @BotFather, "
+                    "что бот существует. Нужна повторная настройка доступа к боту.",
+                    True,
+                ) from None
             if not self.client.me.is_bot or self.client.me.id != int(token.split(":", 1)[0]):
-                raise _StaleBot("Сохранённая сессия принадлежит другому боту. Останови Elys и "
-                                "перемести data/bot.session в резервную копию, затем запусти снова.", False)
+                raise _StaleBot(
+                    "Сохранённая сессия принадлежит другому боту. Останови Elys и "
+                    "перемести data/bot.session в резервную копию, затем запусти снова.",
+                    False,
+                )
             self.app.bot = self.client
             await change_handler(self.client, self._handler, GROUP)
             core = self.app.kv.ns("core")
@@ -195,8 +210,10 @@ class BotService:
                 sent = await user.send_message(self.client.me.username, "/start")
                 reply = await asyncio.wait_for(self._probe, timeout=10)
             except TimeoutError:
-                raise BotSetupError("Бот не ответил за 10 секунд. Проверь, что он не заблокирован, "
-                                    "и перезапусти Elys; кнопки пока недоступны.") from None
+                raise BotSetupError(
+                    "Бот не ответил за 10 секунд. Проверь, что он не заблокирован, "
+                    "и перезапусти Elys; кнопки пока недоступны."
+                ) from None
             finally:
                 self._probe = None
                 ids = [m.id for m in (sent, reply) if m is not None]
@@ -209,8 +226,11 @@ class BotService:
         if not message.from_user or message.from_user.id != self.app.client.me.id:
             return
         forum = getattr(self.app, "forum", None)
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton("Открыть Elys", url=forum.url)]]) \
-            if forum and forum.url else None
+        markup = (
+            InlineKeyboardMarkup([[InlineKeyboardButton("Открыть Elys", url=forum.url)]])
+            if forum and forum.url
+            else None
+        )
         text = "Я помощник Elys. Всё — в чате «Elys»." if markup else "Я помощник Elys. Чат «Elys» сейчас создаётся."
         reply = await bot.send_message(message.chat.id, text, reply_markup=markup, disable_notification=True)
         if (message.text or "").split() == ["/start"] and self._probe and not self._probe.done():
@@ -226,6 +246,5 @@ class BotService:
                         await self.verify()
                     except Exception:
                         break
-        log.error("Не удалось доставить важное сообщение в Telegram: %s", text,
-                  extra={"no_telegram": True})
+        log.error("Не удалось доставить важное сообщение в Telegram: %s", text, extra={"no_telegram": True})
         return None

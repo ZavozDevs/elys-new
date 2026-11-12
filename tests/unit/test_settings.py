@@ -56,16 +56,22 @@ def test_invalid_env_is_settings_error(tmp_path, extra):
 
 
 def test_rate_limits_json_and_stable_prefixes(tmp_path):
-    s = load(env(
-        tmp_path, ELYS_API_ID="1", ELYS_API_HASH="h", ELYS_LOG_LEVEL="debug",
-        ELYS_PREFIXES="! . ! ..", ELYS_RATE_LIMITS='{"message": {"rate": 2, "burst": 3}}',
-    ))
+    s = load(
+        env(
+            tmp_path,
+            ELYS_API_ID="1",
+            ELYS_API_HASH="h",
+            ELYS_LOG_LEVEL="debug",
+            ELYS_PREFIXES="! . ! ..",
+            ELYS_RATE_LIMITS='{"message": {"rate": 2, "burst": 3}}',
+        )
+    )
     assert s.prefixes == ("!", ".", "..")
     assert s.log_level == "DEBUG"
     assert s.rate_limits == {"message": {"rate": 2, "burst": 3}}
 
 
-@pytest.mark.parametrize("value", ["[1]", "[]", "[\"a b\"]", "true", "[\"a\"]", "[\"!1\"]"])
+@pytest.mark.parametrize("value", ["[1]", "[]", '["a b"]', "true", '["a"]', '["!1"]'])
 def test_invalid_prefixes_in_toml(tmp_path, value):
     (tmp_path / "settings.toml").write_text(f'api_id = 1\napi_hash = "h"\nprefixes = {value}\n')
     with pytest.raises(SettingsError, match="prefixes"):

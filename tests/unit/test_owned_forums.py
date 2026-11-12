@@ -6,26 +6,42 @@ from elys.core.clients import ElysClient
 
 
 def channel(identity, title="Elys", *, forum=True, creator=True):
-    return raw.types.Channel(id=identity, title=title, photo=raw.types.ChatPhotoEmpty(), date=1,
-                             forum=forum or None, creator=creator or None, megagroup=True)
+    return raw.types.Channel(
+        id=identity,
+        title=title,
+        photo=raw.types.ChatPhotoEmpty(),
+        date=1,
+        forum=forum or None,
+        creator=creator or None,
+        megagroup=True,
+    )
 
 
 def dialog(identity):
     return raw.types.Dialog(
-        peer=raw.types.PeerChannel(channel_id=identity), top_message=identity, read_inbox_max_id=0,
-        read_outbox_max_id=0, unread_count=0, unread_mentions_count=0, unread_reactions_count=0,
-        unread_poll_votes_count=0, notify_settings=raw.types.PeerNotifySettings())
+        peer=raw.types.PeerChannel(channel_id=identity),
+        top_message=identity,
+        read_inbox_max_id=0,
+        read_outbox_max_id=0,
+        unread_count=0,
+        unread_mentions_count=0,
+        unread_reactions_count=0,
+        unread_poll_votes_count=0,
+        notify_settings=raw.types.PeerNotifySettings(),
+    )
 
 
 def message(identity):
-    return raw.types.Message(id=identity, peer_id=raw.types.PeerChannel(channel_id=identity), date=identity,
-                             message="text")
+    return raw.types.Message(
+        id=identity, peer_id=raw.types.PeerChannel(channel_id=identity), date=identity, message="text"
+    )
 
 
 def page(*chats):
     ids = [chat.id for chat in chats]
     return raw.types.messages.Dialogs(
-        dialogs=[dialog(i) for i in ids], messages=[message(i) for i in ids], chats=list(chats), users=[])
+        dialogs=[dialog(i) for i in ids], messages=[message(i) for i in ids], chats=list(chats), users=[]
+    )
 
 
 async def test_owned_forums_reads_only_chats_paginates_and_filters():

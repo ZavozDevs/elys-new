@@ -58,9 +58,20 @@ def ping(d, count, timeout):
         with sqlite3.connect(d["session"]) as src, sqlite3.connect(os.path.join(tmp, "s.session")) as dst:
             src.backup(dst)
         r = subprocess.run(
-            [d["python"], os.path.join(HERE, "bench_drive.py"), d["lib"], "s",
-             str(d["api_id"]), d["api_hash"], str(count), str(timeout)],
-            cwd=tmp, capture_output=True, text=True, timeout=timeout + 60,
+            [
+                d["python"],
+                os.path.join(HERE, "bench_drive.py"),
+                d["lib"],
+                "s",
+                str(d["api_id"]),
+                d["api_hash"],
+                str(count),
+                str(timeout),
+            ],
+            cwd=tmp,
+            capture_output=True,
+            text=True,
+            timeout=timeout + 60,
         )
         if r.returncode:
             raise RuntimeError(r.stderr.strip()[-500:])
@@ -103,8 +114,12 @@ def measure(t, plan):
             time.sleep(plan["window_s"])
             b = stats(out)
             foreign, rpc = b["foreign"] - a["foreign"], b["rpc"] - a["rpc"]
-            res.update(window_s=plan["window_s"], foreign_msgs=foreign, rpc_window=rpc,
-                       rpc_per_1000=round(rpc * 1000 / foreign) if foreign >= 100 else None)
+            res.update(
+                window_s=plan["window_s"],
+                foreign_msgs=foreign,
+                rpc_window=rpc,
+                rpc_per_1000=round(rpc * 1000 / foreign) if foreign >= 100 else None,
+            )
             top = {k: v - a["methods"].get(k, 0) for k, v in b["methods"].items()}
             res["rpc_top"] = dict(sorted(top.items(), key=lambda kv: -kv[1])[:5])
 
@@ -129,10 +144,16 @@ def measure(t, plan):
 
 
 def table(rows):
-    cols = [("Старт, с", "start_s"), ("RSS после старта, МБ", "rss_start_mb"),
-            ("RSS через 5 мин, МБ", "rss_5min_mb"), ("RSS в конце, МБ", "rss_end_mb"),
-            ("PSS в конце, МБ", "pss_end_mb"), (".ping, медиана мс", "ping_median_ms"),
-            ("Чужих сообщений за окно", "foreign_msgs"), ("RPC на 1000 чужих", "rpc_per_1000")]
+    cols = [
+        ("Старт, с", "start_s"),
+        ("RSS после старта, МБ", "rss_start_mb"),
+        ("RSS через 5 мин, МБ", "rss_5min_mb"),
+        ("RSS в конце, МБ", "rss_end_mb"),
+        ("PSS в конце, МБ", "pss_end_mb"),
+        (".ping, медиана мс", "ping_median_ms"),
+        ("Чужих сообщений за окно", "foreign_msgs"),
+        ("RPC на 1000 чужих", "rpc_per_1000"),
+    ]
     head = "| | " + " | ".join(r["name"] for r in rows) + " |"
     lines = [head, "|" + "---|" * (len(rows) + 1)]
     for title, key in cols:

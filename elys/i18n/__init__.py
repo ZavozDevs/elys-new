@@ -49,6 +49,7 @@ def fill(template: str, language: str, values: dict) -> Html:
             options = forms.split("|")
             return options[min(plural(language, value), len(options) - 1)]
         return value if isinstance(value, Html) else escape(str(value))
+
     return Html(FIELD.sub(substitute, template))
 
 
@@ -101,13 +102,23 @@ class Catalog:
 
     def languages(self) -> dict[str, dict]:
         # код → _meta; ru и en первыми
-        found = {code: {"name": code, "flag": "", "version": 0} | s[META]
-                 for code, s in self.packs.items() if META in s}
+        found = {
+            code: {"name": code, "flag": "", "version": 0} | s[META] for code, s in self.packs.items() if META in s
+        }
         # [*FALLBACK, code].index(code) — место в FALLBACK или «после всех» одним выражением
         return dict(sorted(found.items(), key=lambda i: ([*FALLBACK, i[0]].index(i[0]), i[1]["name"])))
 
-    def t(self, key: str, *, language: str = "ru", premium: bool = False, sections=("core",),
-          extra: dict | None = None, default: str | None = None, **values) -> str:
+    def t(
+        self,
+        key: str,
+        *,
+        language: str = "ru",
+        premium: bool = False,
+        sections=("core",),
+        extra: dict | None = None,
+        default: str | None = None,
+        **values,
+    ) -> str:
         for lang in dict.fromkeys((language, *FALLBACK)):
             for strings in ((extra or {}).get(lang, {}), *(self.packs.get(lang, {}).get(s, {}) for s in sections)):
                 if key in strings:

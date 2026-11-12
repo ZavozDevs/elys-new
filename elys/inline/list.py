@@ -13,9 +13,13 @@ def nav_row(index, count, make):
 
     if count <= 1:
         return []
-    return [[make(PREV, (index - 1) % count, "primary"),
-             Button(f"{index + 1} / {count}", _noop),
-             make(NEXT, (index + 1) % count, "primary")]]
+    return [
+        [
+            make(PREV, (index - 1) % count, "primary"),
+            Button(f"{index + 1} / {count}", _noop),
+            make(NEXT, (index + 1) % count, "primary"),
+        ]
+    ]
 
 
 def page_buttons(index, count, callback):

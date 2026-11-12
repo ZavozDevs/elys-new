@@ -17,16 +17,22 @@ from pyrogram.types import Message
 from elys import Config, Module, UserError, respond
 from elys.inline.button import Button
 
-module = Module("Updater", config=Config(
-    check=Config.integer(6, min=0, doc="Проверять обновления раз в N часов, 0 — выключено")))
+module = Module(
+    "Updater", config=Config(check=Config.integer(6, min=0, doc="Проверять обновления раз в N часов, 0 — выключено"))
+)
 t = module.t
 REPO = Path(__file__).resolve().parents[2]
 
 
 async def run(*command: str) -> str:
     # аргументы фиксированы в коде — ввод пользователя в shell не попадает
-    process = await asyncio.create_subprocess_exec(*command, cwd=REPO, stdin=asyncio.subprocess.DEVNULL,
-                                                   stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        cwd=REPO,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
     output = (await process.communicate())[0].decode(errors="replace").strip()
     if process.returncode:
         raise UserError(t("failed", output=escape(output[-1500:] or str(process.returncode))))
@@ -56,7 +62,8 @@ async def remote() -> str | None:
         if not slug:
             return None
         sha, etag = await asyncio.to_thread(
-            head, "https://api.github.com/repos/" + slug[1] + "/commits/" + branch, state.get("etag"))
+            head, "https://api.github.com/repos/" + slug[1] + "/commits/" + branch, state.get("etag")
+        )
     except (UserError, OSError, IndexError):
         return None
     if sha:
@@ -103,8 +110,12 @@ async def update(client: Client, message: Message) -> None:
     log = await pending()
     if not log:
         return await respond(status, t("latest", version=await run("git", "rev-parse", "--short", "HEAD")))
-    await module.app.inline.form(module, message, t("available", log=escape(log)),
-                                 [[Button(t("install"), install, style="success", icon="check")]])
+    await module.app.inline.form(
+        module,
+        message,
+        t("available", log=escape(log)),
+        [[Button(t("install"), install, style="success", icon="check")]],
+    )
     if status.outgoing and not status.deleted:
         await status.delete()
 
@@ -148,9 +159,15 @@ async def watch(client: Client) -> None:
         with contextlib.suppress(Exception):
             await module.app.bot.delete_messages(*state["message"])
     forum = module.app.forum
-    chat, thread = ((forum.chat_id, forum.state["topics"].get("updates")) if forum and forum.available
-                    else (client.me.id, None))
-    unit = await module.app.inline.bot_form(module, chat, t("available", log=escape(log)),
-                                            [[Button(t("install"), install, style="success", icon="check")]],
-                                            ttl=30 * 86400, thread=thread)
+    chat, thread = (
+        (forum.chat_id, forum.state["topics"].get("updates")) if forum and forum.available else (client.me.id, None)
+    )
+    unit = await module.app.inline.bot_form(
+        module,
+        chat,
+        t("available", log=escape(log)),
+        [[Button(t("install"), install, style="success", icon="check")]],
+        ttl=30 * 86400,
+        thread=thread,
+    )
     state["message"] = [chat, unit.data["message_id"]]

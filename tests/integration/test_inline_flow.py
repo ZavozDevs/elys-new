@@ -17,20 +17,27 @@ from tests.integration.test_stage2_commands import invoke, setup
 
 async def test_config_navigation_prefix_alias_persistence_and_secrets(app):
     await setup(app)
-    item = Module("<Demo>", config=Config(
-        count=Config.value(2, doc="Количество"), token=Config.secret("private-default", doc="Секрет"),
-        enabled=Config.value(True, doc="Работать"), color=Config.choice("red", ["red", "blue"], doc="Цвет"),
-    ))
+    item = Module(
+        "<Demo>",
+        config=Config(
+            count=Config.value(2, doc="Количество"),
+            token=Config.secret("private-default", doc="Секрет"),
+            enabled=Config.value(True, doc="Работать"),
+            color=Config.choice("red", ["red", "blue"], doc="Цвет"),
+        ),
+    )
     app.loader.sources[item.name] = Path("demo.py")
     await app.load(item)
     assert app.router.get("prefs") is None
     await invoke(app, ".config")
     unit = last_unit(app)
     # Главный экран: сверху одна кнопка, ниже два раздела модулей и «Закрыть».
-    assert [b.text.split(" · ")[0] for b in unit.buttons.values()] == [
-        "Elys", "Системные", "Сторонние", "Закрыть"]
+    assert [b.text.split(" · ")[0] for b in unit.buttons.values()] == ["Elys", "Системные", "Сторонние", "Закрыть"]
     assert [[b.text.split(" · ")[0] for b in row] for row in unit.data["markup"].inline_keyboard] == [
-        ["Elys"], ["Системные", "Сторонние"], ["Закрыть"]]
+        ["Elys"],
+        ["Системные", "Сторонние"],
+        ["Закрыть"],
+    ]
     await click(app, unit, "Сторонние")
     assert "Назад" not in unit.data["text"] and "<Demo>" in [b.text for b in unit.buttons.values()]
     await click(app, unit, "<Demo>")
@@ -84,8 +91,12 @@ async def test_forms_in_lists_gallery_and_premium_html(app):
     item = Module("Forms")
     await app.load(item)
     app.premium = True
-    form = await item.form(99, "{e:check} <b>Форма</b>", [[Button("OK", AsyncMock(), style="success", icon="check")]],
-                           banner="https://example.org/banner.png")
+    form = await item.form(
+        99,
+        "{e:check} <b>Форма</b>",
+        [[Button("OK", AsyncMock(), style="success", icon="check")]],
+        banner="https://example.org/banner.png",
+    )
     stranger = SimpleNamespace(query=f"elys:{form.id}", from_user=SimpleNamespace(id=2), answer=AsyncMock())
     with pytest.raises(StopPropagation):
         await app.inline._query(app.bot, stranger)
@@ -101,8 +112,9 @@ async def test_forms_in_lists_gallery_and_premium_html(app):
     assert [b.text for b in listing.buttons.values()] == ["←", "2 / 2", "→", "Закрыть"]
     await click(app, listing, "←")
     assert "Первая" in listing.data["text"]
-    gallery = await item.gallery(99, [Photo("https://example.org/1.jpg", "один"),
-                                     Photo("https://example.org/2.jpg", "два")])
+    gallery = await item.gallery(
+        99, [Photo("https://example.org/1.jpg", "один"), Photo("https://example.org/2.jpg", "два")]
+    )
     query = await click(app, gallery, "→")
     assert query.edit_message_media.call_args.args[0].media.endswith("2.jpg")
     assert gallery.data["index"] == 1
@@ -133,9 +145,7 @@ async def test_input_secret_via_inline_query(app):
     unit = last_unit(app)
     await click(app, unit, "token")
     q_result = SimpleNamespace(
-        query=f"cfg:{unit.id}:set:Private:token <new-secret>",
-        from_user=app.client.me,
-        inline_message_id="msg-secret",
+        query=f"cfg:{unit.id}:set:Private:token <new-secret>", from_user=app.client.me, inline_message_id="msg-secret"
     )
     with pytest.raises(StopPropagation):
         await app.inline._chosen(app.bot, q_result)
@@ -150,9 +160,7 @@ async def test_core_input_via_inline_query_and_navigation(app):
     await click(app, unit, "Elys")
     await click(app, unit, "Префикс")
     q_result = SimpleNamespace(
-        query=f"cfg:{unit.id}:core:prefixes ! .",
-        from_user=app.client.me,
-        inline_message_id="msg-core",
+        query=f"cfg:{unit.id}:core:prefixes ! .", from_user=app.client.me, inline_message_id="msg-core"
     )
     with pytest.raises(StopPropagation):
         await app.inline._chosen(app.bot, q_result)

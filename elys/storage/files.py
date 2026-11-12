@@ -42,8 +42,11 @@ def write_private(path: Path, text: str) -> None:
 
 def backup_members(archive: zipfile.ZipFile) -> list[str]:
     # в копии допустимы только база и файлы модулей без подкаталогов: пути вне data невозможны.
-    return [name for name in archive.namelist()
-            if name == "elys.db" or (name.endswith(".py") and str(PurePosixPath(name).parent) == "modules")]
+    return [
+        name
+        for name in archive.namelist()
+        if name == "elys.db" or (name.endswith(".py") and str(PurePosixPath(name).parent) == "modules")
+    ]
 
 
 def restore_pending(directory: Path) -> None:

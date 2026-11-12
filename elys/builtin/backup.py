@@ -16,10 +16,13 @@ from pyrogram.types import Message
 
 from elys import Config, Module, UserError, get_reply, respond
 
-module = Module("Backup", config=Config(
-    interval=Config.integer(24, min=0, doc="Автокопия раз в N часов, 0 — выключено"),
-    keep=Config.integer(7, min=1, doc="Сколько автокопий хранить"),
-))
+module = Module(
+    "Backup",
+    config=Config(
+        interval=Config.integer(24, min=0, doc="Автокопия раз в N часов, 0 — выключено"),
+        keep=Config.integer(7, min=1, doc="Сколько автокопий хранить"),
+    ),
+)
 t = module.t
 
 
@@ -48,8 +51,13 @@ def name() -> str:
 
 
 async def upload(forum, archive: Path):
-    return await module.app.bot.send_document(forum.chat_id, archive, caption=t("caption"), disable_notification=True,
-                                              message_thread_id=forum.state["topics"].get("backups"))
+    return await module.app.bot.send_document(
+        forum.chat_id,
+        archive,
+        caption=t("caption"),
+        disable_notification=True,
+        message_thread_id=forum.state["topics"].get("backups"),
+    )
 
 
 @module.command("backup", roles=("sudo",))

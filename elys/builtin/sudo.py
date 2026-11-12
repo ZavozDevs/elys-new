@@ -87,8 +87,10 @@ async def rules(client: Client, message: Message) -> None:
     # [allow|deny <кто|here> <команда|модуль>] [del <номер>] — исключения из ролей
     args, items = message.command[1:], list(module.app.router.security.store.get("rules", []))
     if not args:
-        lines = (t("rule_line", n=n, sign=t("allow" if allow else "deny"), name=name_of(uid), target=shown(target))
-                 for n, (uid, target, allow) in enumerate(items, 1))
+        lines = (
+            t("rule_line", n=n, sign=t("allow" if allow else "deny"), name=name_of(uid), target=shown(target))
+            for n, (uid, target, allow) in enumerate(items, 1)
+        )
         return await respond(message, t("rules", list="\n".join(lines) or t("empty")))
     if args[0] == "del" and len(args) == 2 and args[1].isdigit() and 0 < int(args[1]) <= len(items):
         uid, target, _ = items.pop(int(args[1]) - 1)

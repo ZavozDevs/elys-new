@@ -132,8 +132,9 @@ async def test_edit_retries_then_gives_up_without_losing_the_form(app, monkeypat
 
 async def test_premium_gallery_caption_and_list_use_the_same_flow(app):
     item, _ = await prepare(app)
-    gallery = await item.gallery(99, [Photo("https://example.org/1.jpg", "{e:check} один"),
-                                      Photo("https://example.org/2.jpg", "два")])
+    gallery = await item.gallery(
+        99, [Photo("https://example.org/1.jpg", "{e:check} один"), Photo("https://example.org/2.jpg", "два")]
+    )
     app.bot.edit_inline_caption.assert_awaited_once()
     args, kwargs = app.bot.edit_inline_caption.call_args
     assert args[0] == "imid" and "tg-emoji" in args[1] and kwargs["reply_markup"] is gallery.data["markup"]

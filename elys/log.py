@@ -105,10 +105,12 @@ class TelegramLogHandler(logging.Handler):
         # Делим до экранирования: даже 500 кавычек после escape укладываются в лимит.
         # Полный трейсбек сохраняется, длинный — несколькими сообщениями с одним номером.
         for offset in range(0, max(1, len(details)), 500):
-            chunk = html.escape(details[offset:offset + 500])
-            self.pending.append(f"⚠️ Не удалось выполнить действие · ошибка <code>#{html.escape(str(tag))}</code>\n"
-                                f"<blockquote expandable>{chunk}</blockquote>\n"
-                                "Если ошибка повторяется, передай эти подробности автору модуля.")
+            chunk = html.escape(details[offset : offset + 500])
+            self.pending.append(
+                f"⚠️ Не удалось выполнить действие · ошибка <code>#{html.escape(str(tag))}</code>\n"
+                f"<blockquote expandable>{chunk}</blockquote>\n"
+                "Если ошибка повторяется, передай эти подробности автору модуля."
+            )
 
     def attach(self, sink):
         self.sink = sink
@@ -126,8 +128,9 @@ class TelegramLogHandler(logging.Handler):
                     return
             except Exception:
                 self.pending.extendleft(reversed(batch))
-                logging.getLogger(__name__).exception("Не удалось отправить ошибки в Telegram",
-                                                      extra={"no_telegram": True})
+                logging.getLogger(__name__).exception(
+                    "Не удалось отправить ошибки в Telegram", extra={"no_telegram": True}
+                )
                 return
 
     async def _run(self):

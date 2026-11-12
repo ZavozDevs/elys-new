@@ -7,8 +7,7 @@ module = Module(
     "Hello",
     version="1.0",
     config=Config(greeting=Config.value("Привет", doc="Начало приветствия")),
-    strings={"ru": {"hello": "{e:check} {greeting}, {name}!"},
-             "en": {"hello": "{e:check} Hello, {name}!"}},
+    strings={"ru": {"hello": "{e:check} {greeting}, {name}!"}, "en": {"hello": "{e:check} Hello, {name}!"}},
 )
 
 

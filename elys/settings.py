@@ -49,8 +49,10 @@ def _prefixes(value: Any) -> tuple[str, ...]:
     # в env — через пробел: ELYS_PREFIXES=". !"
     if isinstance(value, str):
         value = value.split()
-    if not isinstance(value, list) or not value or not all(
-        isinstance(p, str) and p and not any(c.isspace() or c.isalnum() for c in p) for p in value
+    if (
+        not isinstance(value, list)
+        or not value
+        or not all(isinstance(p, str) and p and not any(c.isspace() or c.isalnum() for c in p) for p in value)
     ):
         raise ValueError("prefixes: нужен непустой список знаков без букв, цифр и пробелов")
     return tuple(dict.fromkeys(value))

@@ -42,8 +42,7 @@ async def test_emoji_in_html_is_parsed_by_real_wzgram(premium):
         text = html.b("<test>") + " " + E.check + " " + html.emoji("123", "🌧")
         parsed = await Parser(None).parse(text, mode=__import__("pyrogram").enums.ParseMode.HTML)
         assert parsed["message"] == "<test> ✅ 🌧"
-        entities = [entity for entity in parsed["entities"]
-                    if getattr(entity, "document_id", None) is not None]
+        entities = [entity for entity in parsed["entities"] if getattr(entity, "document_id", None) is not None]
         assert len(entities) == (2 if premium else 0)
         host.premium = not premium
         assert ("tg-emoji" in E["check"]) is not premium
@@ -53,8 +52,10 @@ async def test_emoji_in_html_is_parsed_by_real_wzgram(premium):
 
 def test_template_arguments_are_escaped_and_not_rendered():
     strings = {"ru": {"status": "{e:check} {value}"}, "en": {"only": "english"}}
+
     def translate(_, key, **values):
         return catalog.t(key, sections=(), extra=strings, **values)
+
     assert translate(strings, "status", value="<b>{e:stop}</b>") == "✅ &lt;b&gt;{e:stop}&lt;/b&gt;"
     assert translate(strings, "only", language="xx") == "english"
     assert translate(strings, "absent") == "absent"

@@ -39,17 +39,31 @@ def system() -> dict[str, str]:
         release = platform.freedesktop_os_release()["PRETTY_NAME"]
     except OSError:
         release = platform.platform()
-    return {"cpu": escape(proc("cpuinfo").get("model name") or platform.machine()), "cores": str(os.cpu_count()),
-            "load": f"{os.getloadavg()[0]:.2f}", "ram": gb(total - free), "ram_total": gb(total),
-            "rss": f"{rss / 1024**2:.0f}", "disk": gb(disk.used), "disk_total": gb(disk.total),
-            "host": escape(platform.node()), "system": escape(release)}
+    return {
+        "cpu": escape(proc("cpuinfo").get("model name") or platform.machine()),
+        "cores": str(os.cpu_count()),
+        "load": f"{os.getloadavg()[0]:.2f}",
+        "ram": gb(total - free),
+        "ram_total": gb(total),
+        "rss": f"{rss / 1024**2:.0f}",
+        "disk": gb(disk.used),
+        "disk_total": gb(disk.total),
+        "host": escape(platform.node()),
+        "system": escape(release),
+    }
 
 
 async def commit() -> str:
     with suppress(OSError):
-        process = await asyncio.create_subprocess_exec("git", "rev-parse", "--short", "HEAD", cwd=REPO,
-                                                       stdout=asyncio.subprocess.PIPE,
-                                                       stderr=asyncio.subprocess.DEVNULL)
+        process = await asyncio.create_subprocess_exec(
+            "git",
+            "rev-parse",
+            "--short",
+            "HEAD",
+            cwd=REPO,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
         return (await process.communicate())[0].decode().strip()
     return ""
 
@@ -57,6 +71,15 @@ async def commit() -> str:
 @module.command("info", roles=("sudo", "support"))
 async def info(client: Client, message: Message) -> None:
     # — сервер и Elys: CPU, память, диск, версия, аптайм
-    await respond(message, t("screen", **system(), version=__version__, commit=await commit() or "—",
-                             wzgram=pyrogram.__version__, uptime=format_uptime(module.app.uptime)),
-                  banner=module.config["banner"] or None)
+    await respond(
+        message,
+        t(
+            "screen",
+            **system(),
+            version=__version__,
+            commit=await commit() or "—",
+            wzgram=pyrogram.__version__,
+            uptime=format_uptime(module.app.uptime),
+        ),
+        banner=module.config["banner"] or None,
+    )

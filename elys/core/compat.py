@@ -12,7 +12,7 @@ from pyrogram.raw.core.primitives import Bytes, Int, Long, String, Vector
 
 class _LegacyReplyInlineMarkup(TLObject):
     __slots__ = ["rows"]
-    ID = 0x48a30254
+    ID = 0x48A30254
     QUALNAME = "types.ReplyInlineMarkup"
 
     def __init__(self, *, rows: list[raw.base.KeyboardInlineButtonRow]) -> None:
@@ -32,7 +32,7 @@ class _LegacyReplyInlineMarkup(TLObject):
 
 class _LegacyKeyboardButtonUrl(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xd80c25ec
+    ID = 0xD80C25EC
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -46,7 +46,7 @@ class _LegacyKeyboardButtonUrl(TLObject):
 
 class _LegacyKeyboardButtonCallback(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xe62bc960
+    ID = 0xE62BC960
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -65,7 +65,7 @@ class _LegacyKeyboardButtonCallback(TLObject):
 
 class _LegacyKeyboardButtonSwitchInline(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0x991399fc
+    ID = 0x991399FC
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -85,7 +85,7 @@ class _LegacyKeyboardButtonSwitchInline(TLObject):
 
 class _LegacyKeyboardButtonCopy(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xbcc4af10
+    ID = 0xBCC4AF10
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -95,15 +95,13 @@ class _LegacyKeyboardButtonCopy(TLObject):
         text = String.read(b)
         copy_text = String.read(b)
         return raw.types.KeyboardInlineButton(
-            text=text,
-            type=raw.types.InlineButtonTypeCopy(copy_text=copy_text),
-            style=style,
+            text=text, type=raw.types.InlineButtonTypeCopy(copy_text=copy_text), style=style
         )
 
 
 class _LegacyKeyboardButtonWebView(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xe846b1a0
+    ID = 0xE846B1A0
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -112,16 +110,12 @@ class _LegacyKeyboardButtonWebView(TLObject):
         style = TLObject.read(b) if flags & (1 << 10) else None
         text = String.read(b)
         url = String.read(b)
-        return raw.types.KeyboardInlineButton(
-            text=text,
-            type=raw.types.InlineButtonTypeWebView(url=url),
-            style=style,
-        )
+        return raw.types.KeyboardInlineButton(text=text, type=raw.types.InlineButtonTypeWebView(url=url), style=style)
 
 
 class _LegacyKeyboardButtonSimpleWebView(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xe15c4370
+    ID = 0xE15C4370
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -130,16 +124,12 @@ class _LegacyKeyboardButtonSimpleWebView(TLObject):
         style = TLObject.read(b) if flags & (1 << 10) else None
         text = String.read(b)
         url = String.read(b)
-        return raw.types.KeyboardInlineButton(
-            text=text,
-            type=raw.types.InlineButtonTypeWebView(url=url),
-            style=style,
-        )
+        return raw.types.KeyboardInlineButton(text=text, type=raw.types.InlineButtonTypeWebView(url=url), style=style)
 
 
 class _LegacyKeyboardButtonUrlAuth(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xf51006f9
+    ID = 0xF51006F9
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -159,7 +149,7 @@ class _LegacyKeyboardButtonUrlAuth(TLObject):
 
 class _LegacyKeyboardButtonUserProfile(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0xc0fd5d09
+    ID = 0xC0FD5D09
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -169,15 +159,13 @@ class _LegacyKeyboardButtonUserProfile(TLObject):
         text = String.read(b)
         user_id = Long.read(b)
         return raw.types.KeyboardInlineButton(
-            text=text,
-            type=raw.types.InlineButtonTypeUserProfile(user_id=user_id),
-            style=style,
+            text=text, type=raw.types.InlineButtonTypeUserProfile(user_id=user_id), style=style
         )
 
 
 class _LegacyKeyboardButtonBuy(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0x3fa53905
+    ID = 0x3FA53905
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -185,16 +173,12 @@ class _LegacyKeyboardButtonBuy(TLObject):
         flags = Int.read(b)
         style = TLObject.read(b) if flags & (1 << 10) else None
         text = String.read(b)
-        return raw.types.KeyboardInlineButton(
-            text=text,
-            type=raw.types.InlineButtonTypeBuy(),
-            style=style,
-        )
+        return raw.types.KeyboardInlineButton(text=text, type=raw.types.InlineButtonTypeBuy(), style=style)
 
 
 class _LegacyKeyboardButtonGame(TLObject):
     __slots__ = ["style", "text", "type"]
-    ID = 0x89c590f9
+    ID = 0x89C590F9
     QUALNAME = "types.KeyboardInlineButton"
 
     @staticmethod
@@ -202,16 +186,12 @@ class _LegacyKeyboardButtonGame(TLObject):
         flags = Int.read(b)
         style = TLObject.read(b) if flags & (1 << 10) else None
         text = String.read(b)
-        return raw.types.KeyboardInlineButton(
-            text=text,
-            type=raw.types.InlineButtonTypeGame(),
-            style=style,
-        )
+        return raw.types.KeyboardInlineButton(text=text, type=raw.types.InlineButtonTypeGame(), style=style)
 
 
 class _LegacyPageBlockBlockquote(TLObject):
     __slots__ = ["caption", "collapsed", "text"]
-    ID = 0x263d7c26
+    ID = 0x263D7C26
     QUALNAME = "types.PageBlockBlockquote"
 
     @staticmethod
@@ -241,4 +221,3 @@ def register_legacy_types() -> None:
     for cls in _LEGACY_TYPES:
         raw.all.objects[cls.ID] = cls
         raw.core.tl_object.objects[cls.ID] = cls
-
