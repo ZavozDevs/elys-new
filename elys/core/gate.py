@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Iterable, Sized
+from time import time
 from typing import Any
 
 from pyrogram import raw
@@ -14,6 +15,7 @@ _PeerUser = raw.types.PeerUser
 _PeerChat = raw.types.PeerChat
 _ShortMessage = raw.types.UpdateShortMessage
 _CHANNEL_BASE = -1_000_000_000_000  # id канала в bot api: -100… (как utils.get_channel_id)
+_STALE = 60  # с: edit со старым edit_date — не правка, а реакция/превью на старом сообщении (§4.2)
 
 Parser = Callable[[Any, dict, dict], Awaitable[tuple[Any, type]]]
 
@@ -40,6 +42,8 @@ class Gate:
 
     def __call__(self, update: Any, chats: dict, edited: bool = False) -> bool:
         message = update.message
+        if edited and _stale(message):  # до out: повтор опасен как раз для своих команд
+            return False
         if getattr(message, "out", False) or self.listeners or self._own(message):
             return True
         peer = getattr(message, "peer_id", None)
@@ -67,6 +71,13 @@ class Gate:
         return self.matcher(key(chat_type), chat_id)
 
 
+def _stale(message: Any) -> bool:
+    # реакции, превью ссылки и правки инлайн-ботом приходят как edit, но edit_date не двигают (или прячут его
+    # через edit_hide): без отсева старое «.t …» выполнилось бы снова. У ephemeral edit_date нет — пропускаем.
+    now = time()
+    return bool(getattr(message, "edit_hide", False)) or (getattr(message, "edit_date", now) or 0) < now - _STALE
+
+
 def _chat(peer: Any, chats: dict) -> tuple[int, int]:
     cls = type(peer)
     if cls is _PeerUser:
@@ -85,12 +96,17 @@ class GateDispatcher(Dispatcher):
         super().__init__(client)
         for types, edited in ((self.NEW_MESSAGE_UPDATES, False), (self.EDIT_MESSAGE_UPDATES, True)):
             for raw_type in types:
-                self.update_parsers[raw_type] = _gated(self.update_parsers[raw_type], gate, edited)
+                self.update_parsers[raw_type] = _gated(self.update_parsers[raw_type], gate, edited, client)
 
 
-def _gated(original: Parser, gate: Gate, edited: bool) -> Parser:
+def _gated(original: Parser, gate: Gate, edited: bool, client: Any) -> Parser:
     async def parser(update: Any, users: dict, chats: dict) -> tuple[Any, type]:
         if not gate(update, chats, edited):
+            message = update.message
+            if edited and getattr(message, "peer_id", None) is not None:
+                # Правка мимо парсера: кэш wzgram хранил бы старый текст, и reply_to_message / get_reply
+                # (r в .e) отдавали бы сообщение до правки. Забываем — следующий ответ загрузит свежее.
+                client.message_cache.pop((_chat(message.peer_id, chats)[0], message.id), None)
             return None, type(None)  # не совпадёт ни с одним хендлером, raw-хендлеры увидят
         message, handler = await original(update, users, chats)
         sender = getattr(message, "from_user", None)

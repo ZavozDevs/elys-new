@@ -60,6 +60,16 @@ def test_edits_need_edited_scope():
     assert gate(Scope.PRIVATE | Scope.EDITED)(f.edit(msg), {}, True)
 
 
+@pytest.mark.parametrize(
+    ("kw", "fresh", "passes"),
+    [({}, True, True), ({}, False, False), ({"edit_date": 1}, True, False), ({"edit_hide": True}, True, False)],
+    ids=["edit", "reaction", "old", "hidden"],
+)
+def test_fake_edit_of_own_command_dropped(kw, fresh, passes):
+    # реакция/превью на своём старом «.t …» — edit без правки: команда не должна выполниться снова
+    assert gate()(f.edit(f.message(T.PeerUser(user_id=5), out=True, **kw), fresh=fresh), {}, True) is passes
+
+
 def test_message_empty_dropped():
     assert not gate(Scope.ALL)(f.new(T.MessageEmpty(id=1)), {})
 
@@ -122,6 +132,18 @@ async def test_dispatcher_marks_own_saved_message_outgoing(monkeypatch, is_self,
     parse = dispatcher.update_parsers[T.UpdateNewMessage]
     result, _ = await parse(f.new(f.message(T.PeerUser(user_id=5), from_id=T.PeerUser(user_id=5))), {}, {})
     assert result is message and message.outgoing is outgoing
+
+
+async def test_dropped_edit_forgets_stale_cached_message():
+    # Чужая правка не проходит гейт: в кэше wzgram не должно остаться сообщение до правки (r.text в .e).
+    client = pyrogram.Client("t", api_id=1, api_hash="x", in_memory=True)
+    dispatcher = GateDispatcher(client, Gate(owner_id=lambda: 5))
+    client.message_cache[(6, 1)] = "до правки"
+    client.message_cache[(-7, 1)] = "чужой чат"
+    parse = dispatcher.update_parsers[T.UpdateEditMessage]
+    assert await parse(f.edit(f.message(T.PeerUser(user_id=6))), {}, {}) == (None, type(None))
+    assert client.message_cache[(6, 1)] is None
+    assert client.message_cache[(-7, 1)] == "чужой чат"
 
 
 def test_trusted_sender_and_chat_pass_closed_gate():

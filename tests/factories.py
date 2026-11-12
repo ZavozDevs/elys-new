@@ -1,12 +1,14 @@
 # raw-объекты для тестов гейта.
 
+from time import time
+
 from pyrogram import raw
 
 T = raw.types
 
 
-def message(peer, *, out=False, from_id=None, text="hi", id=1):
-    return T.Message(id=id, peer_id=peer, date=0, message=text, out=out, from_id=from_id)
+def message(peer, *, out=False, from_id=None, text="hi", id=1, **kw):
+    return T.Message(id=id, peer_id=peer, date=0, message=text, out=out, from_id=from_id, **kw)
 
 
 def new(msg):
@@ -17,7 +19,9 @@ def new_channel(msg):
     return T.UpdateNewChannelMessage(message=msg, pts=1, pts_count=1)
 
 
-def edit(msg):
+def edit(msg, *, fresh=True):
+    # по умолчанию — настоящая правка «сейчас»; fresh=False без edit_date — как реакция на сообщение
+    msg.edit_date = msg.edit_date or (int(time()) if fresh else None)
     return T.UpdateEditMessage(message=msg, pts=1, pts_count=1)
 
 
