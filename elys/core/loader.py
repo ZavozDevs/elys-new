@@ -33,28 +33,15 @@ def metadata(path: Path) -> dict:
         tree = ast.parse(entry.read_text("utf-8"), filename=str(entry))
     except (SyntaxError, UnicodeError):
         raise LoadError("Файл не похож на рабочий Python-модуль. Нужен исходный .py, не страница сайта.") from None
-    # поддерживаем `from elys import Module as M` и `import elys as e`.
-    constructors, packages = set(), set()
+    # как модуль может назвать конструктор: `from elys import Module as M` → «M», `import elys as e` → «e.Module».
+    names = set()
     for node in tree.body:
         if isinstance(node, ast.ImportFrom) and node.module == "elys":
-            constructors.update(a.asname or a.name for a in node.names if a.name == "Module")
+            names.update(a.asname or a.name for a in node.names if a.name == "Module")
         if isinstance(node, ast.Import):
-            packages.update(a.asname or a.name for a in node.names if a.name == "elys")
+            names.update(f"{a.asname or a.name}.Module" for a in node.names if a.name == "elys")
     values = [node.value for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))]
-    calls = [
-        node
-        for node in values
-        if isinstance(node, ast.Call)
-        and (
-            (isinstance(node.func, ast.Name) and node.func.id in constructors)
-            or (
-                isinstance(node.func, ast.Attribute)
-                and node.func.attr == "Module"
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in packages
-            )
-        )
-    ]
+    calls = [node for node in values if isinstance(node, ast.Call) and ast.unparse(node.func) in names]
     if len(calls) != 1:
         raise LoadError("В файле нужен один Module на верхнем уровне. Попроси автора проверить модуль.")
     result = {"requires": [], "banner": ""}

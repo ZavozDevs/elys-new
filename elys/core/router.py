@@ -11,6 +11,8 @@ from pyrogram import Client
 from pyrogram.handlers import EditedMessageHandler, MessageHandler
 from pyrogram.types import Message
 
+from elys.settings import is_prefix
+
 from .ratelimit import RateLimit
 from .security import Security
 
@@ -61,9 +63,7 @@ class Router:
     @prefixes.setter
     def prefixes(self, value: Iterable[str]) -> None:
         prefixes = tuple(value)
-        if not prefixes or not all(
-            isinstance(p, str) and p and not any(c.isspace() or c.isalnum() for c in p) for p in prefixes
-        ):
+        if not prefixes or not all(map(is_prefix, prefixes)):
             raise ValueError("префикс должен состоять из знаков (например . или !), без букв, цифр и пробелов")
         self._prefixes = tuple(dict.fromkeys(prefixes))  # порядок пользователя, первый — основной
         self._matching_prefixes = tuple(sorted(self._prefixes, key=len, reverse=True))

@@ -26,16 +26,13 @@ class Security:
         roles, rules, commands = self.store.get("roles", {}), self.store.get("rules", []), tuple(commands)
         self.role_of = {int(uid): self.mask(names) for uid, names in roles.items()}
         overrides = {(uid, c.name): True for uid, m in self.role_of.items() for c in commands if m & self.mask(c.roles)}
-        # правило на модуль, потом на команду: точное сильнее общего
-        for subject, target, allow in sorted(rules, key=lambda rule: rule[1].startswith("cmd:")):
-            overrides.update(
-                {
-                    (subject, c.name): allow
-                    for c in commands
-                    if target in (f"cmd:{c.name}", f"mod:{c.owner.name.lower()}")
-                }
-            )
-        self.overrides = overrides
+        # поверх ролей — правила: сначала на модуль, потом на команду; позднее перезаписывает, точное сильнее общего
+        self.overrides = overrides | {
+            (subject, c.name): allow
+            for subject, target, allow in sorted(rules, key=lambda rule: rule[1].startswith("cmd:"))
+            for c in commands
+            if target in (f"cmd:{c.name}", f"mod:{c.owner.name.lower()}")
+        }
         self.trusted_ids = frozenset(self.role_of) | {subject for subject, _, allow in rules if allow}
 
     def allowed(self, sender: int, chat: int, command: Command) -> bool:
